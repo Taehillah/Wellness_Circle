@@ -1,8 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for network requests (Dio/HTTP). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:label="wellcheck"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
+        <!-- Allow HTTP calls to localhost/10.0.2.2 and LAN during development. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

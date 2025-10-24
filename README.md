@@ -61,11 +61,19 @@ flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:4000
 flutter run -d ios --dart-define=API_BASE_URL=http://localhost:4000
 ```
 
-### Android Emulator / Device
+### Android
+- Emulator (host backend):
 ```bash
 flutter run -d android --dart-define=API_BASE_URL=http://10.0.2.2:4000
 ```
-*(Use `10.0.2.2` inside the Android emulator to reach `localhost` on the host machine.)*
+  Use `10.0.2.2` inside the Android emulator to reach `localhost` on the host machine.
+
+- Physical device (host backend via LAN):
+```bash
+flutter run -d android --dart-define=API_BASE_URL=http://<YOUR-LAN-IP>:4000
+```
+  Replace `<YOUR-LAN-IP>` with your computer’s IP on the same Wi‑Fi (e.g. `http://192.168.1.50:4000`).
+  Ensure your firewall allows inbound connections and the device can ping the host.
 
 ### Desktop (optional)
 ```bash
