@@ -1,11 +1,12 @@
 import 'package:dio/dio.dart';
 
 class HttpRequestException implements Exception {
-  const HttpRequestException(this.message, {this.statusCode, this.details});
+  const HttpRequestException(this.message, {this.statusCode, this.details, this.isConnectivity = false});
 
   final String message;
   final int? statusCode;
   final dynamic details;
+  final bool isConnectivity;
 
   @override
   String toString() => 'HttpRequestException(statusCode: $statusCode, message: $message)';
@@ -15,6 +16,16 @@ class HttpRequestException implements Exception {
     final statusCode = response?.statusCode;
     final data = response?.data;
     String message = error.message ?? 'Unexpected error';
+
+    // Provide a friendlier message for connectivity issues.
+    if (error.type == DioExceptionType.connectionError ||
+        error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.receiveTimeout) {
+      return const HttpRequestException(
+        'Cannot connect to the server. Ensure the backend is running and API_BASE_URL is correct.',
+        isConnectivity: true,
+      );
+    }
 
     if (data is Map<String, dynamic>) {
       final errorMessage = data['message'] ?? data['error'];

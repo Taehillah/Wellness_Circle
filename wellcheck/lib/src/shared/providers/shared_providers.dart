@@ -10,5 +10,5 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 });
 
 final appConfigProvider = Provider<AppConfig>((ref) {
-  return const AppConfig.fromEnvironment();
+  return AppConfig.auto();
 });

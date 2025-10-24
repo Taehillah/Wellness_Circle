@@ -89,13 +89,27 @@ class AuthController extends Notifier<AuthState> {
       _setSession(nextSession);
       completer.complete();
     } on HttpRequestException catch (error) {
-      state = state.copyWith(
-        status: AuthStatus.unauthenticated,
-        session: null,
-        errorMessage: error.message,
-      );
-      await _preferences.remove(_sessionStorageKey);
-      completer.completeError(error);
+      if (error.isConnectivity) {
+        // Keep existing session for offline use when the backend is unreachable.
+        final saved = _preferences.getJson(_sessionStorageKey);
+        if (saved != null) {
+          final session = AuthSession.fromJson(saved);
+          _setSession(session);
+          state = state.copyWith(status: AuthStatus.authenticated, errorMessage: null);
+          completer.complete();
+        } else {
+          _setUnauthenticated();
+          completer.complete();
+        }
+      } else {
+        state = state.copyWith(
+          status: AuthStatus.unauthenticated,
+          session: null,
+          errorMessage: error.message,
+        );
+        await _preferences.remove(_sessionStorageKey);
+        completer.completeError(error);
+      }
     } catch (error) {
       state = state.copyWith(
         status: AuthStatus.error,

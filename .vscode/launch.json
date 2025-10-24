@@ -1,0 +1,49 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "wellcheck",
+            "cwd": "wellcheck",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            // Debug on Android emulator; uses host bridge 10.0.2.2
+            "name": "wellcheck (Android emulator)",
+            "cwd": "wellcheck",
+            "request": "launch",
+            "type": "dart",
+            "args": [
+                "--dart-define=API_BASE_URL=http://10.0.2.2:4000"
+            ]
+        },
+        {
+            // Debug on a physical Android device over Wi‑Fi.
+            // Replace <YOUR_LAN_IP> with your Mac's IP (e.g. 192.168.1.23).
+            "name": "wellcheck (Android device - LAN)",
+            "cwd": "wellcheck",
+            "request": "launch",
+            "type": "dart",
+            "args": [
+                "--dart-define=API_BASE_URL=http://<YOUR_LAN_IP>:4000"
+            ]
+        },
+        {
+            "name": "wellcheck (profile mode)",
+            "cwd": "wellcheck",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "wellcheck (release mode)",
+            "cwd": "wellcheck",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }
+    ]
+}

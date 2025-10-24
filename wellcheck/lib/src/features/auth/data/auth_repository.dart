@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/network/dio_client.dart';
 import '../../../shared/network/http_exception.dart';
 import 'models/auth_response.dart';
+import 'models/auth_user.dart';
 
 class AuthRepository {
   AuthRepository(this._dio);
@@ -25,6 +26,38 @@ class AuthRepository {
       final data = response.data ?? {};
       return AuthResponse.fromJson(data);
     } on DioException catch (error) {
+      // Demo/offline fallback for known sample accounts when backend is unreachable.
+      final isConnectivityError = error.type == DioExceptionType.connectionError ||
+          error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout;
+
+      if (isConnectivityError) {
+        final emailNorm = email.trim().toLowerCase();
+        if (emailNorm == 'margaret@example.com' && password == 'password123') {
+          final user = AuthUser(
+            id: 1,
+            name: 'Margaret Hamilton',
+            email: 'margaret@example.com',
+            role: 'user',
+            location: 'Springfield',
+            createdAt: DateTime.now().subtract(const Duration(days: 30)),
+            updatedAt: DateTime.now(),
+          );
+          return AuthResponse(token: 'demo-user-token', user: user);
+        }
+        if (emailNorm == 'admin@wellcheck.com' && password == 'admin123') {
+          final user = AuthUser(
+            id: 999,
+            name: 'Admin User',
+            email: 'admin@wellcheck.com',
+            role: 'admin',
+            location: 'HQ',
+            createdAt: DateTime.now().subtract(const Duration(days: 90)),
+            updatedAt: DateTime.now(),
+          );
+          return AuthResponse(token: 'demo-admin-token', user: user);
+        }
+      }
       throw HttpRequestException.fromDio(error);
     }
   }
