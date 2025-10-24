@@ -15,51 +15,26 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
-    try {
-      final response = await _dio.post<Map<String, dynamic>>(
-        '/api/auth/login',
-        data: {
-          'email': email,
-          'password': password,
-        },
-      );
-      final data = response.data ?? {};
-      return AuthResponse.fromJson(data);
-    } on DioException catch (error) {
-      // Demo/offline fallback for known sample accounts when backend is unreachable.
-      final isConnectivityError = error.type == DioExceptionType.connectionError ||
-          error.type == DioExceptionType.connectionTimeout ||
-          error.type == DioExceptionType.receiveTimeout;
-
-      if (isConnectivityError) {
-        final emailNorm = email.trim().toLowerCase();
-        if (emailNorm == 'margaret@example.com' && password == 'password123') {
-          final user = AuthUser(
-            id: 1,
-            name: 'Margaret Hamilton',
-            email: 'margaret@example.com',
-            role: 'user',
-            location: 'Springfield',
-            createdAt: DateTime.now().subtract(const Duration(days: 30)),
-            updatedAt: DateTime.now(),
-          );
-          return AuthResponse(token: 'demo-user-token', user: user);
-        }
-        if (emailNorm == 'admin@wellcheck.com' && password == 'admin123') {
-          final user = AuthUser(
-            id: 999,
-            name: 'Admin User',
-            email: 'admin@wellcheck.com',
-            role: 'admin',
-            location: 'HQ',
-            createdAt: DateTime.now().subtract(const Duration(days: 90)),
-            updatedAt: DateTime.now(),
-          );
-          return AuthResponse(token: 'demo-admin-token', user: user);
-        }
-      }
-      throw HttpRequestException.fromDio(error);
-    }
+    // Offline-first login: accept any credentials and create a local session.
+    final now = DateTime.now();
+    final namePart = email.trim().split('@').first;
+    final displayName = (namePart.isEmpty ? 'User' : namePart)
+        .replaceAll('.', ' ')
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((w) => w.isEmpty ? w : (w[0].toUpperCase() + w.substring(1)))
+        .join(' ');
+    final user = AuthUser(
+      id: now.millisecondsSinceEpoch % 1000000,
+      name: displayName,
+      email: email.trim(),
+      role: 'user',
+      location: 'Local',
+      createdAt: now.subtract(const Duration(days: 1)),
+      updatedAt: now,
+    );
+    final token = 'offline-${now.millisecondsSinceEpoch}';
+    return AuthResponse(token: token, user: user);
   }
 
   Future<AuthResponse> register({
@@ -73,47 +48,32 @@ class AuthRepository {
       throw const HttpRequestException('Passwords do not match');
     }
 
-    try {
-      final response = await _dio.post<Map<String, dynamic>>(
-        '/api/auth/register',
-        data: {
-          'name': name,
-          'email': email,
-          'password': password,
-          'location': location,
-        },
-      );
-      final data = response.data ?? {};
-      return AuthResponse.fromJson(data);
-    } on DioException catch (error) {
-      throw HttpRequestException.fromDio(error);
-    }
+    // Offline-first register: accept any details and create a local session.
+    final now = DateTime.now();
+    final user = AuthUser(
+      id: now.millisecondsSinceEpoch % 1000000,
+      name: name.trim().isEmpty ? 'New User' : name.trim(),
+      email: email.trim(),
+      role: 'user',
+      location: location?.trim().isEmpty ?? true ? 'Local' : location!.trim(),
+      createdAt: now,
+      updatedAt: now,
+    );
+    final token = 'offline-${now.millisecondsSinceEpoch}';
+    return AuthResponse(token: token, user: user);
   }
 
   Future<void> logout() async {
-    try {
-      await _dio.post('/api/auth/logout');
-    } on DioException catch (error) {
-      throw HttpRequestException.fromDio(error);
-    }
+    // Offline-first logout: no remote call needed.
+    return;
   }
 
   Future<AuthResponse> fetchCurrentUser({String? fallbackToken}) async {
-    try {
-      final response = await _dio.get<Map<String, dynamic>>('/api/auth/me');
-      final data = response.data ?? {};
-      if (data.containsKey('token')) {
-        return AuthResponse.fromJson(data);
-      }
-      final token = data['token'] as String? ?? fallbackToken ?? '';
-      final userJson = data['user'] as Map<String, dynamic>? ?? data;
-      return AuthResponse.fromJson({
-        'token': token,
-        'user': userJson,
-      });
-    } on DioException catch (error) {
-      throw HttpRequestException.fromDio(error);
-    }
+    // Offline-first: indicate connectivity so the controller retains the saved session.
+    throw const HttpRequestException(
+      'Offline mode: using saved session',
+      isConnectivity: true,
+    );
   }
 }
 

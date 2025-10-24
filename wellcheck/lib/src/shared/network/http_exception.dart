@@ -20,7 +20,10 @@ class HttpRequestException implements Exception {
     // Provide a friendlier message for connectivity issues.
     if (error.type == DioExceptionType.connectionError ||
         error.type == DioExceptionType.connectionTimeout ||
-        error.type == DioExceptionType.receiveTimeout) {
+        error.type == DioExceptionType.receiveTimeout ||
+        // On Flutter web, cross-origin/CORS issues often surface as "XMLHttpRequest error."
+        (error.type == DioExceptionType.unknown &&
+            (error.message?.toLowerCase().contains('xmlhttprequest error') ?? false))) {
       return const HttpRequestException(
         'Cannot connect to the server. Ensure the backend is running and API_BASE_URL is correct.',
         isConnectivity: true,

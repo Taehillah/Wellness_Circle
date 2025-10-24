@@ -1,9 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-import '../../../shared/router/app_router.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/utils/date_utils.dart';
 import '../../../shared/utils/string_utils.dart';
@@ -16,6 +15,7 @@ import '../../contacts/application/contacts_controller.dart';
 import '../../dashboard/application/dashboard_controller.dart';
 import '../../history/application/check_in_controller.dart';
 import '../../history/data/models/check_in_stats.dart';
+import '../../../shared/theme/theme_controller.dart';
 
 class HomeView extends ConsumerWidget {
   const HomeView({super.key});
@@ -35,6 +35,15 @@ class HomeView extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('WellCheck'),
         actions: [
+          Consumer(builder: (context, ref, _) {
+            final mode = ref.watch(themeModeProvider);
+            final isDark = mode == ThemeMode.dark;
+            return IconButton(
+              tooltip: isDark ? 'Switch to light theme' : 'Switch to dark theme',
+              icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+              onPressed: () => ref.read(themeModeProvider.notifier).toggleLightDark(),
+            );
+          }),
           IconButton(
             tooltip: 'Log out',
             icon: const Icon(Icons.logout_rounded),
@@ -52,14 +61,182 @@ class HomeView extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           children: [
             _GreetingCard(user: user, stats: stats, greeting: greeting),
+            // Countdown panel sits just below the top greeting card.
+            const SizedBox(height: 16),
+            _CountdownPanel(stats: stats),
             const SizedBox(height: 24),
             _ActionButtons(isLoading: isLoading, stats: stats, ref: ref),
             const SizedBox(height: 24),
             _StatsGrid(stats: stats, contactsCount: contactsState.contacts.length),
             const SizedBox(height: 24),
             _RecentCheckIns(historyState: checkInState),
-            const SizedBox(height: 24),
-            _NavigationShortcuts(user: user),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CountdownPanel extends ConsumerStatefulWidget {
+  const _CountdownPanel({required this.stats});
+
+  final CheckInStats stats;
+
+  @override
+  ConsumerState<_CountdownPanel> createState() => _CountdownPanelState();
+}
+
+class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
+  // Default countdown duration. Adjust as needed.
+  // Default countdown duration; panel shows HH:MM:SS.
+  static const _defaultDuration = Duration(hours: 5);
+
+  late Duration _remaining;
+  Timer? _timer;
+  bool _alertShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resetTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CountdownPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Keep timer running regardless of check-in status; restart if needed.
+    if (_timer == null && _remaining > Duration.zero) {
+      _startTimer();
+    }
+  }
+
+  @override
+  void dispose() {
+    _cancelTimer();
+    super.dispose();
+  }
+
+  void _resetTimer() {
+    _remaining = _defaultDuration;
+    _alertShown = false;
+    _cancelTimer();
+    _startTimer();
+    setState(() {});
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      if (_remaining <= const Duration(seconds: 1)) {
+        _remaining = Duration.zero;
+        timer.cancel();
+        _timer = null;
+        if (!_alertShown && mounted) {
+          _alertShown = true;
+          // Prompt the user to press the green primary button below.
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Time to check in! Press the light green 'I am up' button."),
+            ),
+          );
+        }
+        // Auto-restart countdown for the next cycle (every 5 hours by default).
+        setState(() {
+          _remaining = _defaultDuration;
+          _alertShown = false;
+        });
+        _startTimer();
+      } else {
+        setState(() {
+          _remaining -= const Duration(seconds: 1);
+        });
+      }
+    });
+  }
+
+  void _cancelTimer() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  String _format(Duration d) {
+    final h = d.inHours.toString().padLeft(2, '0');
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$h:$m:$s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final completed = _remaining == Duration.zero;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Check-in countdown',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (!completed)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.neutralBackground,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Text(
+                      _format(_remaining),
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (!completed) ...[
+              Text(
+                "When the timer ends, press the green 'I'm doing well' button below.",
+                style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              LinearProgressIndicator(
+                value: 1.0 - (_remaining.inMilliseconds / _defaultDuration.inMilliseconds),
+                minHeight: 8,
+                backgroundColor: const Color(0xFFE2E8F0),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(onPressed: _resetTimer, child: const Text('Restart')),
+                ],
+              ),
+            ] else ...[
+              Row(
+                children: const [
+                  Icon(LucideIcons.bellRing, color: AppColors.danger),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Time to check in! Press the green 'I'm doing well' button.",
+                      style: TextStyle(
+                        color: AppColors.danger,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -191,8 +368,10 @@ class _ActionButtons extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         PrimaryButton(
-          label: stats.hasCheckedInToday ? 'Checked in today' : 'I\'m doing well',
+          label: stats.hasCheckedInToday ? 'Checked in today' : 'I am up',
           isLoading: isLoading,
+          backgroundColor: const Color(0xFF86EFAC), // light green
+          foregroundColor: const Color(0xFF064E3B), // dark green text for contrast
           onPressed: disabled
               ? null
               : () async {
@@ -244,18 +423,7 @@ class _StatsGrid extends StatelessWidget {
               value: stats.total.toString(),
               icon: LucideIcons.calendarDays,
             ),
-            StatCard(
-              label: 'Current streak',
-              value: '${stats.currentStreak} days',
-              icon: LucideIcons.flame,
-              color: AppColors.secondary,
-            ),
-            StatCard(
-              label: 'This week',
-              value: stats.thisWeek.toString(),
-              subtitle: 'Keep up the momentum!',
-              icon: LucideIcons.calendarClock,
-            ),
+            // Removed 'Current streak' and 'This week' per request.
             StatCard(
               label: 'Emergency contacts',
               value: contactsCount.toString(),
@@ -319,92 +487,4 @@ class _RecentCheckIns extends StatelessWidget {
   }
 }
 
-class _NavigationShortcuts extends ConsumerWidget {
-  const _NavigationShortcuts({required this.user});
-
-  final AuthUser? user;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isAdmin = user?.isAdmin ?? false;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Quick actions',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _ShortcutButton(
-                  label: 'Contacts',
-                  icon: LucideIcons.users,
-                  onTap: () => context.go(AppRoute.contacts.path),
-                ),
-                _ShortcutButton(
-                  label: 'History',
-                  icon: LucideIcons.history,
-                  onTap: () => context.go(AppRoute.history.path),
-                ),
-                if (isAdmin)
-                  _ShortcutButton(
-                    label: 'Dashboard',
-                    icon: LucideIcons.layoutDashboard,
-                    onTap: () {
-                      ref.read(dashboardControllerProvider.notifier).load();
-                      context.go(AppRoute.dashboard.path);
-                    },
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ShortcutButton extends StatelessWidget {
-  const _ShortcutButton({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppColors.neutralBackground,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Text(label),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// Quick actions section removed per request.

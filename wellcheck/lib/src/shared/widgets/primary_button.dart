@@ -7,19 +7,23 @@ class PrimaryButton extends StatelessWidget {
     this.onPressed,
     this.icon,
     this.isLoading = false,
+    this.backgroundColor,
+    this.foregroundColor,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
   final bool isLoading;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final style = ElevatedButton.styleFrom(
-      backgroundColor: theme.colorScheme.primary,
-      foregroundColor: theme.colorScheme.onPrimary,
+      backgroundColor: backgroundColor ?? theme.colorScheme.primary,
+      foregroundColor: foregroundColor ?? theme.colorScheme.onPrimary,
     );
 
     if (icon == null) {
