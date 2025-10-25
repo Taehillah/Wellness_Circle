@@ -36,7 +36,7 @@ class DashboardView extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('WellCheck admin dashboard'),
+        title: const Text('Wellness Circle admin dashboard'),
         actions: [
           TextButton.icon(
             onPressed: () => context.go(AppRoute.home.path),

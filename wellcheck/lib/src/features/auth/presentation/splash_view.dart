@@ -25,7 +25,7 @@ class SplashView extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: const [
                     Text(
-                      'WellCheck',
+                      'Wellness Circle',
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,

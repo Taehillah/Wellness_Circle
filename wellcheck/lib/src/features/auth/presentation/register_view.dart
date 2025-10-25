@@ -4,7 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/router/app_router.dart';
 import '../../../shared/theme/app_theme.dart';
-import '../../../shared/widgets/gradient_background.dart';
+import '../../../shared/widgets/three_circles_logo.dart';
+import 'package:flutter/services.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../application/auth_controller.dart';
 
@@ -61,38 +62,71 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
     final authState = ref.watch(authControllerProvider);
     final isLoading = authState.status == AuthStatus.loading;
 
-    return GradientBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Center(
+    return Scaffold(
+      backgroundColor: const Color(0xFF1D4ED8), // solid blue variant
+      body: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460),
-              child: Card(
-                elevation: 8,
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    tooltip: 'Exit',
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () {
+                      SystemNavigator.pop();
+                    },
+                  ),
+                ),
+                const ThreeCirclesLogo(size: 72, color: Colors.white, strokeWidth: 5, overlap: 16),
+                const SizedBox(height: 16),
+                Text(
+                  'Join Wellness Circle',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Create your account to track and thrive',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withOpacity(0.85),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x1A000000),
+                        blurRadius: 16,
+                        offset: Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(20),
                   child: Form(
                     key: _formKey,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Create your WellCheck account',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
+                          'Create your account',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
                             color: AppColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Join the community and track your wellbeing.',
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                         TextFormField(
                           controller: _nameController,
                           decoration: const InputDecoration(
@@ -106,7 +140,7 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
@@ -124,7 +158,7 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         TextFormField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
@@ -152,7 +186,7 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         TextFormField(
                           controller: _confirmPasswordController,
                           obscureText: _obscureConfirm,
@@ -180,7 +214,7 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         TextFormField(
                           controller: _locationController,
                           decoration: const InputDecoration(
@@ -206,24 +240,26 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                               ),
                             ),
                           ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                         PrimaryButton(
                           label: 'Create account',
                           isLoading: isLoading,
                           onPressed: isLoading ? null : _submit,
-                        ),
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: () {
-                            context.go(AppRoute.login.path);
-                          },
-                          child: const Text('Already have an account? Sign in'),
+                          backgroundColor: const Color(0xFF16A34A),
                         ),
                       ],
                     ),
                   ),
                 ),
-              ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => context.go(AppRoute.login.path),
+                  child: const Text(
+                    'Already have an account? Sign in',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

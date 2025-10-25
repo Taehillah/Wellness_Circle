@@ -33,7 +33,7 @@ class HistoryView extends ConsumerWidget {
                         children: const [
                           SizedBox(height: 80),
                           Center(
-                            child: Text('No check-ins yet. Keep using WellCheck to build your progress!'),
+                            child: Text('No check-ins yet. Keep using Wellness Circle to build your progress!'),
                           ),
                         ],
                       )

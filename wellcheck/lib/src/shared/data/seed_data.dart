@@ -33,7 +33,7 @@ class SeedData {
     }
     if (normalized == adminEmail) {
       return const [
-        {'name': 'WellCheck Ops', 'phone': '(312) 555-1100'},
+        {'name': 'Wellness Circle Ops', 'phone': '(312) 555-1100'},
         {'name': 'Community Support', 'phone': '(872) 555-9981'},
       ];
     }

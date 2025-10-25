@@ -20,6 +20,7 @@ import '../../../shared/settings/settings_controller.dart';
 import '../../../shared/providers/shared_providers.dart';
 import 'package:go_router/go_router.dart';
 import '../../../shared/router/app_router.dart';
+import '../../../shared/services/preferences_service.dart';
 
 // Triggers a restart of the countdown timer when incremented.
 class _CountdownRestart extends Notifier<int> {
@@ -63,7 +64,7 @@ class HomeView extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('WellCheck'),
+        title: const Text('Wellness Circle'),
         actions: [
           Consumer(builder: (context, ref, _) {
             final mode = ref.watch(themeModeProvider);
@@ -130,11 +131,15 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
   bool _alertShown = false;
   ProviderSubscription<int>? _restartSub;
   ProviderSubscription<int>? _timerHoursSub;
+  late final PreferencesService _prefs;
+  static const String _kEndAtKey = 'wellcheck.countdown.end_at';
+  DateTime? _endAt;
 
   @override
   void initState() {
     super.initState();
-    _resetTimer();
+    _prefs = ref.read(preferencesServiceProvider);
+    _bootstrapFromPersistedEndTime();
     // Listen for external restart requests (e.g., when user taps "I am up").
     _restartSub = ref.listenManual<int>(countdownRestartProvider, (previous, next) {
       _resetTimer();
@@ -163,7 +168,11 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
   }
 
   void _resetTimer() {
-    _remaining = _currentDuration;
+    final now = DateTime.now();
+    _endAt = now.add(_currentDuration);
+    // Persist target end time so countdown continues across background/terminations.
+    unawaited(_prefs.setString(_kEndAtKey, _endAt!.millisecondsSinceEpoch.toString()));
+    _remaining = _endAt!.difference(now);
     _alertShown = false;
     _cancelTimer();
     _startTimer();
@@ -173,6 +182,12 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
+      final now = DateTime.now();
+      // Recompute remaining from persisted endAt to keep accurate while backgrounded.
+      if (_endAt == null) {
+        _endAt = now.add(_currentDuration);
+      }
+      _remaining = _endAt!.difference(now);
       if (_remaining <= const Duration(seconds: 1)) {
         _remaining = Duration.zero;
         timer.cancel();
@@ -195,14 +210,14 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
         ));
         // Auto-restart countdown for the next cycle using current settings.
         setState(() {
-          _remaining = _currentDuration;
+          _endAt = now.add(_currentDuration);
+          unawaited(_prefs.setString(_kEndAtKey, _endAt!.millisecondsSinceEpoch.toString()));
+          _remaining = _endAt!.difference(now);
           _alertShown = false;
         });
         _startTimer();
       } else {
-        setState(() {
-          _remaining -= const Duration(seconds: 1);
-        });
+        setState(() {});
       }
     });
   }
@@ -210,6 +225,41 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
   void _cancelTimer() {
     _timer?.cancel();
     _timer = null;
+  }
+
+  void _bootstrapFromPersistedEndTime() {
+    final saved = _prefs.getString(_kEndAtKey);
+    final dur = _currentDuration;
+    final now = DateTime.now();
+    if (saved != null) {
+      final ms = int.tryParse(saved);
+      if (ms != null) {
+        var end = DateTime.fromMillisecondsSinceEpoch(ms);
+        // If past, advance by whole cycles to the next end time, matching auto-restart behavior.
+        if (!end.isAfter(now) && dur > Duration.zero) {
+          final spanSec = dur.inSeconds;
+          final diffSec = now.difference(end).inSeconds;
+          final cycles = (diffSec ~/ spanSec) + 1;
+          // Unlock and start reminders since at least one cycle completed while backgrounded.
+          ref.read(checkInLockProvider.notifier).unlock();
+          unawaited(ref.read(notificationsServiceProvider).startMinuteReminder(
+            title: 'Time to check in',
+            body: 'Tap the app and confirm: I am doing Great!',
+          ));
+          end = end.add(Duration(seconds: cycles * spanSec));
+        }
+        _endAt = end;
+        unawaited(_prefs.setString(_kEndAtKey, end.millisecondsSinceEpoch.toString()));
+        _remaining = end.difference(now);
+        _alertShown = false;
+        _cancelTimer();
+        _startTimer();
+        setState(() {});
+        return;
+      }
+    }
+    // Fallback: no persisted time; start a fresh countdown.
+    _resetTimer();
   }
 
   String _format(Duration d) {
@@ -231,7 +281,10 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
             textAlign: TextAlign.center,
             style: theme.textTheme.displayMedium?.copyWith(
               fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+              // Improve contrast in dark mode
+              color: theme.brightness == Brightness.dark
+                  ? theme.colorScheme.onSurface.withOpacity(0.95)
+                  : AppColors.textPrimary,
             ),
           ),
         ),

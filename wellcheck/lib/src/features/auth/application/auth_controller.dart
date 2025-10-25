@@ -58,6 +58,7 @@ class AuthController extends Notifier<AuthState> {
   late final AuthRepository _repository;
   Completer<void>? _restoreCompleter;
   Timer? _debounce;
+  AuthSession? _pendingSession; // holds restored session until biometric unlock
 
   @override
   AuthState build() {
@@ -82,21 +83,19 @@ class AuthController extends Notifier<AuthState> {
         completer.complete();
         return;
       }
+      // Defer restored session until user authenticates (e.g., biometrics).
       final session = AuthSession.fromJson(saved);
-      _setSession(session);
-      final refreshed = await _repository.fetchCurrentUser(fallbackToken: session.token);
-      final nextSession = AuthSession(token: refreshed.token, user: refreshed.user);
-      await _persistSession(nextSession);
-      _setSession(nextSession);
+      _pendingSession = session;
+      // Keep user at login until they unlock.
+      _setUnauthenticated();
       completer.complete();
     } on HttpRequestException catch (error) {
       if (error.isConnectivity) {
-        // Keep existing session for offline use when the backend is unreachable.
+        // Defer restored session until unlock, even when offline.
         final saved = _preferences.getJson(_sessionStorageKey);
         if (saved != null) {
-          final session = AuthSession.fromJson(saved);
-          _setSession(session);
-          state = state.copyWith(status: AuthStatus.authenticated, errorMessage: null);
+          _pendingSession = AuthSession.fromJson(saved);
+          _setUnauthenticated();
           completer.complete();
         } else {
           _setUnauthenticated();
@@ -121,6 +120,26 @@ class AuthController extends Notifier<AuthState> {
       completer.completeError(error);
     } finally {
       _restoreCompleter = null;
+    }
+  }
+
+  Future<bool> unlockWithBiometrics() async {
+    try {
+      // Prefer the pending session captured during restore; fall back to persisted.
+      var session = _pendingSession;
+      if (session == null) {
+        final saved = _preferences.getJson(_sessionStorageKey);
+        if (saved == null) {
+          return false;
+        }
+        session = AuthSession.fromJson(saved);
+      }
+      _pendingSession = null;
+      _setSession(session);
+      state = state.copyWith(status: AuthStatus.authenticated);
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 

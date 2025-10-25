@@ -1,6 +1,6 @@
-# WellCheck Flutter Client
+# Wellness Circle Flutter Client
 
-A multi-platform Flutter client for the WellCheck wellbeing platform. The app targets iOS, Android, and web while speaking to the existing Node/Express backend (`http://localhost:4000` by default). Feature parity with the former React web client is maintained, including authentication, daily check-ins, emergency alerts, contact management, history, and an admin dashboard.
+A multi-platform Flutter client for the Wellness Circle wellbeing platform. The app targets iOS, Android, and web while speaking to the existing Node/Express backend (`http://localhost:4000` by default). Feature parity with the former React web client is maintained, including authentication, daily check-ins, emergency alerts, contact management, history, and an admin dashboard.
 
 ## Why Riverpod?
 Riverpod (with the `Notifier` API) gives us:

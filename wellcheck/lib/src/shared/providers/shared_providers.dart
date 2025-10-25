@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 import '../services/notifications_service.dart';
 import '../services/app_database.dart';
+import '../services/biometric_service.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError(
@@ -25,4 +26,8 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
   throw UnimplementedError(
     'AppDatabase has not been initialized. Did you forget to override appDatabaseProvider in bootstrap?',
   );
+});
+
+final biometricServiceProvider = Provider<BiometricService>((ref) {
+  return BiometricService();
 });
