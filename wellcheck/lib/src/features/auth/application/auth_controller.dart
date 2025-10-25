@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:riverpod/riverpod.dart';
 
 import '../../../shared/network/http_exception.dart';
+import '../../../shared/providers/shared_providers.dart';
 import '../../../shared/services/preferences_service.dart';
 import '../data/auth_repository.dart';
 import '../data/models/auth_response.dart';
@@ -132,6 +133,17 @@ class AuthController extends Notifier<AuthState> {
       final AuthResponse response =
           await _repository.login(email: email, password: password);
       final session = AuthSession(token: response.token, user: response.user);
+      // Persist to local database for control centre records.
+      final db = ref.read(appDatabaseProvider);
+      await db.upsertMember(
+        id: session.user.id,
+        name: session.user.name,
+        email: session.user.email,
+        phone: null,
+        location: session.user.location,
+        createdAt: session.user.createdAt,
+        updatedAt: session.user.updatedAt,
+      );
       await _persistSession(session);
       _setSession(session);
       state = state.copyWith(status: AuthStatus.authenticated);
@@ -158,6 +170,17 @@ class AuthController extends Notifier<AuthState> {
         location: location,
       );
       final session = AuthSession(token: response.token, user: response.user);
+      // Persist to local database for control centre records.
+      final db = ref.read(appDatabaseProvider);
+      await db.upsertMember(
+        id: session.user.id,
+        name: session.user.name,
+        email: session.user.email,
+        phone: null,
+        location: session.user.location,
+        createdAt: session.user.createdAt,
+        updatedAt: session.user.updatedAt,
+      );
       await _persistSession(session);
       _setSession(session);
       state = state.copyWith(status: AuthStatus.authenticated);

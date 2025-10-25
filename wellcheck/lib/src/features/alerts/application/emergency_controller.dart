@@ -8,6 +8,8 @@ import '../../auth/application/auth_controller.dart';
 import '../../auth/data/models/auth_session.dart';
 import '../data/alerts_repository.dart';
 import '../data/models/help_location.dart';
+import '../../../shared/providers/shared_providers.dart';
+import 'package:uuid/uuid.dart';
 import '../data/models/help_request.dart';
 import '../data/models/need_help_payload.dart';
 
@@ -167,6 +169,18 @@ class EmergencyController extends Notifier<EmergencyState> {
         location: state.location,
       );
       final request = await _alertsRepository.sendNeedHelp(payload);
+      // Also persist the help request locally for control centre records.
+      final db = ref.read(appDatabaseProvider);
+      final uuid = const Uuid();
+      await db.insertHelpRequest(
+        id: uuid.v4(),
+        memberId: _session!.user.id,
+        message: message,
+        lat: state.location?.lat,
+        lng: state.location?.lng,
+        address: state.location?.address,
+        createdAt: DateTime.now(),
+      );
       state = state.copyWith(
         isSending: false,
         lastRequest: request,

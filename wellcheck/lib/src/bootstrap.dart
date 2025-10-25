@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'shared/providers/shared_providers.dart';
 import 'shared/services/notifications_service.dart';
+import 'shared/services/app_database.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +14,8 @@ Future<void> bootstrap() async {
   final prefs = await SharedPreferences.getInstance();
   final notifications = NotificationsService();
   await notifications.init();
+  final database = AppDatabase();
+  await database.init();
 
   if (kIsWeb) {
     // No-op placeholder for potential web-specific bootstrap steps.
@@ -23,6 +26,7 @@ Future<void> bootstrap() async {
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
         notificationsServiceProvider.overrideWithValue(notifications),
+        appDatabaseProvider.overrideWithValue(database),
       ],
       child: const App(),
     ),
