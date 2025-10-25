@@ -1,6 +1,7 @@
 import 'package:riverpod/riverpod.dart';
 
 import '../services/preferences_service.dart';
+import '../../features/auth/application/auth_controller.dart';
 
 const _kLocationEnabledKey = 'wellcheck.settings.location_enabled';
 const _kTimerHoursKey = 'wellcheck.settings.timer_hours';
@@ -47,3 +48,32 @@ class TimerHoursController extends Notifier<int> {
 final timerHoursProvider =
     NotifierProvider<TimerHoursController, int>(TimerHoursController.new);
 
+// Preferred contact per user. Stores the selected contact id for quick dial.
+class PreferredContactController extends Notifier<String?> {
+  late final PreferencesService _prefs;
+
+  String _keyFor(int? userId) =>
+      userId == null ? 'wellcheck.user.anon.preferred_contact' : 'wellcheck.user.$userId.preferred_contact';
+
+  @override
+  String? build() {
+    _prefs = ref.read(preferencesServiceProvider);
+    final userId = ref.read(authSessionProvider)?.user.id;
+    return _prefs.getString(_keyFor(userId));
+  }
+
+  Future<void> setPreferred(String? contactId) async {
+    final userId = ref.read(authSessionProvider)?.user.id;
+    final key = _keyFor(userId);
+    if (contactId == null || contactId.isEmpty) {
+      await _prefs.remove(key);
+      state = null;
+    } else {
+      await _prefs.setString(key, contactId);
+      state = contactId;
+    }
+  }
+}
+
+final preferredContactProvider =
+    NotifierProvider<PreferredContactController, String?>(PreferredContactController.new);

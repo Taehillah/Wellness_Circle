@@ -83,6 +83,48 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
           ),
           const Divider(height: 32),
 
+          Text('Preferred family member', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Builder(builder: (context) {
+            final contacts = ref.watch(contactsControllerProvider).contacts;
+            final preferredId = ref.watch(preferredContactProvider);
+            if (contacts.isEmpty) {
+              return const Text('No contacts yet. Add one above.');
+            }
+            final items = contacts
+                .map((c) => DropdownMenuItem<String>(
+                      value: c.id,
+                      child: Text('${c.name} (${c.phone})'),
+                    ))
+                .toList();
+            return Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: preferredId != null && contacts.any((c) => c.id == preferredId)
+                        ? preferredId
+                        : null,
+                    items: items,
+                    decoration: const InputDecoration(
+                      labelText: 'Preferred contact',
+                      prefixIcon: Icon(Icons.star_outline),
+                    ),
+                    onChanged: (id) => ref.read(preferredContactProvider.notifier).setPreferred(id),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Clear',
+                  icon: const Icon(Icons.clear),
+                  onPressed: preferredId == null
+                      ? null
+                      : () => ref.read(preferredContactProvider.notifier).setPreferred(null),
+                ),
+              ],
+            );
+          }),
+          const SizedBox(height: 8),
+
           Text('Appearance', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           RadioListTile<ThemeMode>(

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
+import '../services/notifications_service.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError(
@@ -11,4 +12,10 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 
 final appConfigProvider = Provider<AppConfig>((ref) {
   return AppConfig.auto();
+});
+
+final notificationsServiceProvider = Provider<NotificationsService>((ref) {
+  throw UnimplementedError(
+    'NotificationsService has not been initialized. Did you forget to override notificationsServiceProvider in bootstrap?',
+  );
 });

@@ -11,6 +11,16 @@ class AuthRepository {
 
   final Dio _dio;
 
+  int _stableIdFromEmail(String email) {
+    final e = email.trim().toLowerCase();
+    int hash = 0;
+    for (final codeUnit in e.codeUnits) {
+      hash = (hash * 31 + codeUnit) & 0x7fffffff; // simple stable hash
+    }
+    // constrain to a friendly positive range
+    return (hash % 1000000) + 1;
+  }
+
   Future<AuthResponse> login({
     required String email,
     required String password,
@@ -25,7 +35,7 @@ class AuthRepository {
         .map((w) => w.isEmpty ? w : (w[0].toUpperCase() + w.substring(1)))
         .join(' ');
     final user = AuthUser(
-      id: now.millisecondsSinceEpoch % 1000000,
+      id: _stableIdFromEmail(email),
       name: displayName,
       email: email.trim(),
       role: 'user',
@@ -33,7 +43,7 @@ class AuthRepository {
       createdAt: now.subtract(const Duration(days: 1)),
       updatedAt: now,
     );
-    final token = 'offline-${now.millisecondsSinceEpoch}';
+    final token = 'offline-${email.trim().toLowerCase()}';
     return AuthResponse(token: token, user: user);
   }
 
@@ -51,7 +61,7 @@ class AuthRepository {
     // Offline-first register: accept any details and create a local session.
     final now = DateTime.now();
     final user = AuthUser(
-      id: now.millisecondsSinceEpoch % 1000000,
+      id: _stableIdFromEmail(email),
       name: name.trim().isEmpty ? 'New User' : name.trim(),
       email: email.trim(),
       role: 'user',
@@ -59,7 +69,7 @@ class AuthRepository {
       createdAt: now,
       updatedAt: now,
     );
-    final token = 'offline-${now.millisecondsSinceEpoch}';
+    final token = 'offline-${email.trim().toLowerCase()}';
     return AuthResponse(token: token, user: user);
   }
 

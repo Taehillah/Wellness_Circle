@@ -17,6 +17,7 @@ import '../../history/application/check_in_controller.dart';
 import '../../history/data/models/check_in_stats.dart';
 import '../../../shared/theme/theme_controller.dart';
 import '../../../shared/settings/settings_controller.dart';
+import '../../../shared/providers/shared_providers.dart';
 import 'package:go_router/go_router.dart';
 import '../../../shared/router/app_router.dart';
 
@@ -76,7 +77,7 @@ class HomeView extends ConsumerWidget {
           IconButton(
             tooltip: 'Settings',
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.go(AppRoute.settings.path),
+            onPressed: () => context.push(AppRoute.settings.path),
           ),
           IconButton(
             tooltip: 'Log out',
@@ -187,6 +188,11 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
         }
         // Unlock the check-in button when timer completes.
         ref.read(checkInLockProvider.notifier).unlock();
+        // Start minute-by-minute reminder notifications until the user checks in.
+        unawaited(ref.read(notificationsServiceProvider).startMinuteReminder(
+          title: 'Time to check in',
+          body: 'Tap the app and confirm: I am doing Great!',
+        ));
         // Auto-restart countdown for the next cycle using current settings.
         setState(() {
           _remaining = _currentDuration;
@@ -373,6 +379,8 @@ class _ActionButtons extends StatelessWidget {
                           }
                           ref.read(checkInLockProvider.notifier).lock();
                           ref.read(countdownRestartProvider.notifier).bump();
+                          // Stop reminder notifications upon check-in.
+                          unawaited(ref.read(notificationsServiceProvider).cancelReminders());
                         },
                   borderRadius: BorderRadius.circular(999),
                   child: Container(
@@ -456,7 +464,15 @@ class _StatsGrid extends ConsumerWidget {
       );
       return;
     }
-    final phone = contactsState.contacts.first.phone.trim();
+    // Use preferred contact if selected, else first.
+    final preferredId = ref.read(preferredContactProvider);
+    final target = preferredId == null
+        ? contactsState.contacts.first
+        : (contactsState.contacts.firstWhere(
+            (c) => c.id == preferredId,
+            orElse: () => contactsState.contacts.first,
+          ));
+    final phone = target.phone.trim();
     if (phone.isEmpty) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Selected contact has no phone number.')),
@@ -478,6 +494,20 @@ class _StatsGrid extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 600;
+        final contactsState = ref.watch(contactsControllerProvider);
+        final hasContact = contactsState.contacts.isNotEmpty;
+        final preferredId = ref.watch(preferredContactProvider);
+        final primary = hasContact
+            ? (preferredId == null
+                ? contactsState.contacts.first
+                : (contactsState.contacts.firstWhere(
+                    (c) => c.id == preferredId,
+                    orElse: () => contactsState.contacts.first,
+                  )))
+            : null;
+        final cardLabel = hasContact ? 'Call ${primary!.name}' : 'Call a family member';
+        final cardValue = hasContact ? primary!.phone : contactsCount.toString();
+
         return GridView.count(
           crossAxisCount: 1,
           shrinkWrap: true,
@@ -491,8 +521,8 @@ class _StatsGrid extends ConsumerWidget {
               borderRadius: BorderRadius.circular(20),
               onTap: () => _callFirstContact(context, ref),
               child: StatCard(
-                label: 'Call a family member',
-                value: contactsCount.toString(),
+                label: cardLabel,
+                value: cardValue,
                 icon: LucideIcons.phone,
                 backgroundColor: const Color(0xFF2563EB), // solid blue
                 foregroundColor: Colors.white,

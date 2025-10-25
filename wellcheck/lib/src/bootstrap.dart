@@ -5,11 +5,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'shared/providers/shared_providers.dart';
+import 'shared/services/notifications_service.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final prefs = await SharedPreferences.getInstance();
+  final notifications = NotificationsService();
+  await notifications.init();
 
   if (kIsWeb) {
     // No-op placeholder for potential web-specific bootstrap steps.
@@ -19,6 +22,7 @@ Future<void> bootstrap() async {
     ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
+        notificationsServiceProvider.overrideWithValue(notifications),
       ],
       child: const App(),
     ),
