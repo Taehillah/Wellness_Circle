@@ -9,6 +9,7 @@ import '../../features/auth/presentation/splash_view.dart';
 import '../../features/contacts/presentation/contacts_view.dart';
 import '../../features/dashboard/presentation/dashboard_view.dart';
 import '../../features/history/presentation/history_view.dart';
+import '../../features/settings/presentation/settings_view.dart';
 import '../../features/home/presentation/home_view.dart';
 
 enum AppRoute {
@@ -18,6 +19,7 @@ enum AppRoute {
   home('/home'),
   contacts('/contacts'),
   history('/history'),
+  settings('/settings'),
   dashboard('/dashboard');
 
   const AppRoute(this.path);
@@ -62,6 +64,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoute.history.path,
         name: AppRoute.history.name,
         builder: (context, state) => const HistoryView(),
+      ),
+      GoRoute(
+        path: AppRoute.settings.path,
+        name: AppRoute.settings.name,
+        builder: (context, state) => const SettingsView(),
       ),
       GoRoute(
         path: AppRoute.dashboard.path,

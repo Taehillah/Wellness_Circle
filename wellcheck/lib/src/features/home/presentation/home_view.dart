@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/utils/date_utils.dart';
@@ -15,6 +16,9 @@ import '../../dashboard/application/dashboard_controller.dart';
 import '../../history/application/check_in_controller.dart';
 import '../../history/data/models/check_in_stats.dart';
 import '../../../shared/theme/theme_controller.dart';
+import '../../../shared/settings/settings_controller.dart';
+import 'package:go_router/go_router.dart';
+import '../../../shared/router/app_router.dart';
 
 // Triggers a restart of the countdown timer when incremented.
 class _CountdownRestart extends Notifier<int> {
@@ -70,6 +74,11 @@ class HomeView extends ConsumerWidget {
             );
           }),
           IconButton(
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => context.go(AppRoute.settings.path),
+          ),
+          IconButton(
             tooltip: 'Log out',
             icon: const Icon(Icons.logout_rounded),
             onPressed: () => authController.logout(),
@@ -112,14 +121,14 @@ class _CountdownPanel extends ConsumerStatefulWidget {
 }
 
 class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
-  // Default countdown duration. Adjust as needed.
-  // Default countdown duration; panel shows HH:MM:SS.
-  static const _defaultDuration = Duration(hours: 5);
+  // Use ref.read here; watching in initState triggers inherited access errors.
+  Duration get _currentDuration => Duration(hours: ref.read(timerHoursProvider));
 
   late Duration _remaining;
   Timer? _timer;
   bool _alertShown = false;
   ProviderSubscription<int>? _restartSub;
+  ProviderSubscription<int>? _timerHoursSub;
 
   @override
   void initState() {
@@ -127,6 +136,10 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
     _resetTimer();
     // Listen for external restart requests (e.g., when user taps "I am up").
     _restartSub = ref.listenManual<int>(countdownRestartProvider, (previous, next) {
+      _resetTimer();
+    });
+    // Restart timer when settings change the hours value.
+    _timerHoursSub = ref.listenManual<int>(timerHoursProvider, (previous, next) {
       _resetTimer();
     });
   }
@@ -144,11 +157,12 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
   void dispose() {
     _cancelTimer();
     _restartSub?.close();
+    _timerHoursSub?.close();
     super.dispose();
   }
 
   void _resetTimer() {
-    _remaining = _defaultDuration;
+    _remaining = _currentDuration;
     _alertShown = false;
     _cancelTimer();
     _startTimer();
@@ -173,9 +187,9 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
         }
         // Unlock the check-in button when timer completes.
         ref.read(checkInLockProvider.notifier).unlock();
-        // Auto-restart countdown for the next cycle (every 5 hours by default).
+        // Auto-restart countdown for the next cycle using current settings.
         setState(() {
-          _remaining = _defaultDuration;
+          _remaining = _currentDuration;
           _alertShown = false;
         });
         _startTimer();
@@ -202,69 +216,18 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final completed = _remaining == Duration.zero;
-
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Check-in countdown',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (!completed)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.neutralBackground,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Text(
-                      _format(_remaining),
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ),
-              ],
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+        child: Center(
+          child: Text(
+            _format(_remaining),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.displayMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
             ),
-            const SizedBox(height: 10),
-            if (!completed) ...[
-              Text(
-                "When the timer ends, press the rich green 'I am doing Great!' button below.",
-                style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 12),
-              LinearProgressIndicator(
-                value: 1.0 - (_remaining.inMilliseconds / _defaultDuration.inMilliseconds),
-                minHeight: 8,
-                backgroundColor: const Color(0xFFE2E8F0),
-              ),
-              const SizedBox(height: 8),
-            ] else ...[
-              Row(
-                children: const [
-                  Icon(LucideIcons.bellRing, color: AppColors.danger),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "Time to check in! Press the rich green 'I am doing Great!' button.",
-                      style: TextStyle(
-                        color: AppColors.danger,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
@@ -478,14 +441,40 @@ class _ActionButtons extends StatelessWidget {
   }
 }
 
-class _StatsGrid extends StatelessWidget {
+class _StatsGrid extends ConsumerWidget {
   const _StatsGrid({required this.stats, required this.contactsCount});
 
   final CheckInStats stats;
   final int contactsCount;
 
+  Future<void> _callFirstContact(BuildContext context, WidgetRef ref) async {
+    final contactsState = ref.read(contactsControllerProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    if (contactsState.contacts.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No family contacts available to call.')),
+      );
+      return;
+    }
+    final phone = contactsState.contacts.first.phone.trim();
+    if (phone.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Selected contact has no phone number.')),
+      );
+      return;
+    }
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Cannot launch dialer for $phone')),
+      );
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 600;
@@ -498,10 +487,16 @@ class _StatsGrid extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           children: [
             // Removed 'Current streak' and 'This week' per request.
-            StatCard(
-              label: 'Emergency contacts',
-              value: contactsCount.toString(),
-              icon: LucideIcons.users,
+            InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => _callFirstContact(context, ref),
+              child: StatCard(
+                label: 'Call a family member',
+                value: contactsCount.toString(),
+                icon: LucideIcons.phone,
+                backgroundColor: const Color(0xFF2563EB), // solid blue
+                foregroundColor: Colors.white,
+              ),
             ),
           ],
         );

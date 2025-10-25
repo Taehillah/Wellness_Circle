@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:riverpod/riverpod.dart';
 
 import '../../../shared/services/geolocation_service.dart';
+import '../../../shared/settings/settings_controller.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/data/models/auth_session.dart';
 import '../data/alerts_repository.dart';
@@ -83,6 +84,17 @@ class EmergencyController extends Notifier<EmergencyState> {
   }
 
   Future<void> refreshLocation() async {
+    // Respect app setting to disable location.
+    final enabled = ref.read(locationEnabledProvider);
+    if (!enabled) {
+      state = state.copyWith(
+        isLocating: false,
+        statusMessage: null,
+        errorMessage: null,
+        location: null,
+      );
+      return;
+    }
     state = state.copyWith(
       isLocating: true,
       errorMessage: null,
