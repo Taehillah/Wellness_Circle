@@ -6,7 +6,7 @@ import 'package:sqflite/sqflite.dart';
 
 class AppDatabase {
   static const _dbName = 'wellcheck.db';
-  static const _dbVersion = 1;
+  static const _dbVersion = 2;
 
   Database? _db;
 
@@ -20,6 +20,14 @@ class AppDatabase {
       onCreate: (db, version) async {
         await _createSchema(db);
       },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE members ADD COLUMN date_of_birth TEXT;');
+          await db.execute(
+            "ALTER TABLE members ADD COLUMN user_type TEXT NOT NULL DEFAULT 'Pensioner';",
+          );
+        }
+      },
     );
   }
 
@@ -32,6 +40,8 @@ class AppDatabase {
         email TEXT NOT NULL UNIQUE,
         phone TEXT,
         location TEXT,
+        date_of_birth TEXT,
+        user_type TEXT NOT NULL DEFAULT 'Pensioner',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
@@ -99,6 +109,8 @@ class AppDatabase {
     required String email,
     String? phone,
     String? location,
+    DateTime? dateOfBirth,
+    required String userType,
     required DateTime createdAt,
     required DateTime updatedAt,
   }) async {
@@ -112,6 +124,8 @@ class AppDatabase {
         'email': email,
         'phone': phone,
         'location': location,
+        'date_of_birth': dateOfBirth?.toIso8601String(),
+        'user_type': userType,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String(),
       },
@@ -142,4 +156,3 @@ class AppDatabase {
     });
   }
 }
-

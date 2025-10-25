@@ -160,6 +160,8 @@ class AuthController extends Notifier<AuthState> {
         email: session.user.email,
         phone: null,
         location: session.user.location,
+        dateOfBirth: session.user.dateOfBirth,
+        userType: session.user.userType,
         createdAt: session.user.createdAt,
         updatedAt: session.user.updatedAt,
       );
@@ -178,6 +180,8 @@ class AuthController extends Notifier<AuthState> {
     required String password,
     required String confirmPassword,
     String? location,
+    DateTime? dateOfBirth,
+    required String userType,
   }) async {
     state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
     try {
@@ -187,6 +191,8 @@ class AuthController extends Notifier<AuthState> {
         password: password,
         confirmPassword: confirmPassword,
         location: location,
+        dateOfBirth: dateOfBirth,
+        userType: userType,
       );
       final session = AuthSession(token: response.token, user: response.user);
       // Persist to local database for control centre records.
@@ -197,6 +203,8 @@ class AuthController extends Notifier<AuthState> {
         email: session.user.email,
         phone: null,
         location: session.user.location,
+        dateOfBirth: session.user.dateOfBirth,
+        userType: session.user.userType,
         createdAt: session.user.createdAt,
         updatedAt: session.user.updatedAt,
       );

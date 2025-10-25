@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../shared/router/app_router.dart';
 import '../../../shared/theme/app_theme.dart';
@@ -22,8 +23,21 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _locationController = TextEditingController();
+  final _dobController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+  DateTime? _selectedDob;
+  String _selectedUserType = 'Pensioner';
+
+  static const List<String> _userTypes = [
+    'Pensioner',
+    'Challenged',
+    'Child',
+    'Lady',
+    'Man',
+    'Patient',
+  ];
+  final DateFormat _dobFormat = DateFormat('d MMM yyyy');
 
   @override
   void dispose() {
@@ -32,7 +46,25 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _locationController.dispose();
+    _dobController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDob() async {
+    final initial = _selectedDob ?? DateTime(DateTime.now().year - 40, 1, 1);
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year - 120),
+      lastDate: now,
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDob = picked;
+        _dobController.text = _dobFormat.format(picked);
+      });
+    }
   }
 
   Future<void> _submit() async {
@@ -49,6 +81,8 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
         location: _locationController.text.trim().isEmpty
             ? null
             : _locationController.text.trim(),
+        dateOfBirth: _selectedDob,
+        userType: _selectedUserType,
       );
     } catch (_) {
       // Errors surface via state.
@@ -145,6 +179,48 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                               return 'Enter a valid email';
                             }
                             return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _dobController,
+                          readOnly: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Date of birth',
+                            prefixIcon: Icon(Icons.cake_outlined),
+                            hintText: 'Select your date of birth',
+                          ),
+                          onTap: () {
+                            FocusScope.of(context).unfocus();
+                            _pickDob();
+                          },
+                          validator: (_) {
+                            if (_selectedDob == null) {
+                              return 'Please select your date of birth';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: _selectedUserType,
+                          decoration: const InputDecoration(
+                            labelText: 'User type',
+                            prefixIcon: Icon(Icons.badge_outlined),
+                          ),
+                          items: _userTypes
+                              .map(
+                                (type) => DropdownMenuItem(
+                                  value: type,
+                                  child: Text(type),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            if (value == null) return;
+                            setState(() {
+                              _selectedUserType = value;
+                            });
                           },
                         ),
                         const SizedBox(height: 12),

@@ -27,6 +27,7 @@ class AuthRepository {
   }) async {
     // Offline-first login: accept any credentials and create a local session.
     final now = DateTime.now();
+    final defaultDob = DateTime(now.year - 45, 1, 1);
     final namePart = email.trim().split('@').first;
     final displayName = (namePart.isEmpty ? 'User' : namePart)
         .replaceAll('.', ' ')
@@ -40,6 +41,8 @@ class AuthRepository {
       email: email.trim(),
       role: 'user',
       location: 'Local',
+      dateOfBirth: defaultDob,
+      userType: 'Pensioner',
       createdAt: now.subtract(const Duration(days: 1)),
       updatedAt: now,
     );
@@ -53,6 +56,8 @@ class AuthRepository {
     required String password,
     required String confirmPassword,
     String? location,
+    DateTime? dateOfBirth,
+    required String userType,
   }) async {
     if (password != confirmPassword) {
       throw const HttpRequestException('Passwords do not match');
@@ -60,12 +65,15 @@ class AuthRepository {
 
     // Offline-first register: accept any details and create a local session.
     final now = DateTime.now();
+    final defaultDob = DateTime(now.year - 40, 1, 1);
     final user = AuthUser(
       id: _stableIdFromEmail(email),
       name: name.trim().isEmpty ? 'New User' : name.trim(),
       email: email.trim(),
       role: 'user',
       location: location?.trim().isEmpty ?? true ? 'Local' : location!.trim(),
+      dateOfBirth: dateOfBirth ?? defaultDob,
+      userType: userType,
       createdAt: now,
       updatedAt: now,
     );

@@ -32,6 +32,8 @@ void main() {
       email: 'margaret@example.com',
       role: 'user',
       location: 'Springfield, IL',
+      dateOfBirth: DateTime.utc(1936, 8, 17),
+      userType: 'Pensioner',
       createdAt: DateTime.utc(2024, 1, 1),
       updatedAt: DateTime.utc(2024, 1, 2),
     );

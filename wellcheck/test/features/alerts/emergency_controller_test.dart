@@ -41,6 +41,8 @@ void main() {
           email: 'admin@wellcheck.com',
           role: 'admin',
           location: 'Chicago, IL',
+          dateOfBirth: DateTime.utc(1980, 5, 12),
+          userType: 'Man',
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         ),
