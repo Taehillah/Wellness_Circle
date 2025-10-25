@@ -18,6 +18,7 @@ import '../../history/data/models/check_in_stats.dart';
 import '../../../shared/theme/theme_controller.dart';
 import '../../../shared/settings/settings_controller.dart';
 import '../../../shared/providers/shared_providers.dart';
+import '../../../shared/widgets/three_circles_logo.dart';
 import 'package:go_router/go_router.dart';
 import '../../../shared/router/app_router.dart';
 import '../../../shared/services/preferences_service.dart';
@@ -320,14 +321,70 @@ class _GreetingCard extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        // Solid modern blue background for the top panel
-        color: const Color(0xFF2563EB), // rich modern blue
-        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF1E3A8A),
+            Color(0xFF2563EB),
+            Color(0xFF38BDF8),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x332563EB),
+            blurRadius: 26,
+            offset: Offset(0, 14),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.14),
+                ),
+                padding: const EdgeInsets.all(12),
+                child: const ThreeCirclesLogo(
+                  size: 60,
+                  color: Colors.white,
+                  strokeWidth: 4.5,
+                  overlap: 18,
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Wellness Circle',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Modern wellbeing for every season of life.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 28),
           Text(
             'Hi $greeting',
             style: theme.textTheme.headlineMedium?.copyWith(
@@ -347,21 +404,20 @@ class _GreetingCard extends StatelessWidget {
             spacing: 16,
             runSpacing: 12,
             children: [
-          _Chip(
-            icon: LucideIcons.flame,
-            label: 'Streak: ${stats.currentStreak} days',
-          ),
+              _Chip(
+                icon: LucideIcons.flame,
+                label: 'Streak: ${stats.currentStreak} days',
+              ),
               if (user?.location != null && user!.location!.isNotEmpty)
                 _Chip(
                   icon: LucideIcons.mapPin,
                   label: user!.location!,
                 ),
-              _Chip(
-                icon: LucideIcons.clock3,
-                label: stats.lastCheckIn == null
-                    ? 'No check-ins yet'
-                    : 'Last: ${DateFormatting.relative(stats.lastCheckIn!.timestamp)}',
-              ),
+              if (stats.lastCheckIn != null)
+                _Chip(
+                  icon: LucideIcons.clock3,
+                  label: 'Last: ${DateFormatting.relative(stats.lastCheckIn!.timestamp)}',
+                ),
             ],
           ),
         ],
