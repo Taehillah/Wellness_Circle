@@ -28,19 +28,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
     super.dispose();
   }
 
-  void _fillDemoUser() {
-    setState(() {
-      _emailController.text = 'margaret@example.com';
-      _passwordController.text = 'password123';
-    });
-  }
-
-  void _fillDemoAdmin() {
-    setState(() {
-      _emailController.text = 'admin@wellcheck.com';
-      _passwordController.text = 'admin123';
-    });
-  }
+  // Demo account autofill removed.
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
@@ -164,40 +152,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                           },
                           child: const Text('Need an account? Create one'),
                         ),
-                        const Divider(height: 32),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.neutralBackground,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Demo accounts',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 12,
-                                children: [
-                                  OutlinedButton(
-                                    onPressed: _fillDemoUser,
-                                    child: const Text('Member login'),
-                                  ),
-                                  OutlinedButton(
-                                    onPressed: _fillDemoAdmin,
-                                    child: const Text('Admin login'),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                        // Demo accounts panel removed.
                       ],
                     ),
                   ),

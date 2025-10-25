@@ -6,7 +6,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/utils/date_utils.dart';
 import '../../../shared/utils/string_utils.dart';
-import '../../../shared/widgets/primary_button.dart';
 import '../../../shared/widgets/stat_card.dart';
 import '../../alerts/presentation/need_help_sheet.dart';
 import '../../auth/application/auth_controller.dart';
@@ -16,6 +15,32 @@ import '../../dashboard/application/dashboard_controller.dart';
 import '../../history/application/check_in_controller.dart';
 import '../../history/data/models/check_in_stats.dart';
 import '../../../shared/theme/theme_controller.dart';
+
+// Triggers a restart of the countdown timer when incremented.
+class _CountdownRestart extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void bump() => state++;
+}
+
+final countdownRestartProvider = NotifierProvider<_CountdownRestart, int>(
+  _CountdownRestart.new,
+);
+
+// Lock state for the "I am up" button. Locked immediately after pressing,
+// then unlocked when the countdown expires.
+class _CheckInLock extends Notifier<bool> {
+  @override
+  bool build() => false; // start unlocked
+
+  void lock() => state = true;
+  void unlock() => state = false;
+}
+
+final checkInLockProvider = NotifierProvider<_CheckInLock, bool>(
+  _CheckInLock.new,
+);
 
 class HomeView extends ConsumerWidget {
   const HomeView({super.key});
@@ -94,11 +119,16 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
   late Duration _remaining;
   Timer? _timer;
   bool _alertShown = false;
+  ProviderSubscription<int>? _restartSub;
 
   @override
   void initState() {
     super.initState();
     _resetTimer();
+    // Listen for external restart requests (e.g., when user taps "I am up").
+    _restartSub = ref.listenManual<int>(countdownRestartProvider, (previous, next) {
+      _resetTimer();
+    });
   }
 
   @override
@@ -113,6 +143,7 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
   @override
   void dispose() {
     _cancelTimer();
+    _restartSub?.close();
     super.dispose();
   }
 
@@ -136,10 +167,12 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
           // Prompt the user to press the green primary button below.
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Time to check in! Press the light green 'I am up' button."),
+              content: Text("Time to check in! Press the rich green 'I am up' button."),
             ),
           );
         }
+        // Unlock the check-in button when timer completes.
+        ref.read(checkInLockProvider.notifier).unlock();
         // Auto-restart countdown for the next cycle (every 5 hours by default).
         setState(() {
           _remaining = _defaultDuration;
@@ -204,7 +237,7 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
             const SizedBox(height: 10),
             if (!completed) ...[
               Text(
-                "When the timer ends, press the green 'I'm doing well' button below.",
+                "When the timer ends, press the rich green 'I am doing Great!' button below.",
                 style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 12),
@@ -214,12 +247,6 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
                 backgroundColor: const Color(0xFFE2E8F0),
               ),
               const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(onPressed: _resetTimer, child: const Text('Restart')),
-                ],
-              ),
             ] else ...[
               Row(
                 children: const [
@@ -227,7 +254,7 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      "Time to check in! Press the green 'I'm doing well' button.",
+                      "Time to check in! Press the rich green 'I am doing Great!' button.",
                       style: TextStyle(
                         color: AppColors.danger,
                         fontWeight: FontWeight.w600,
@@ -260,11 +287,8 @@ class _GreetingCard extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.secondary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        // Solid modern blue background for the top panel
+        color: const Color(0xFF2563EB), // rich modern blue
         borderRadius: BorderRadius.circular(24),
       ),
       padding: const EdgeInsets.all(24),
@@ -290,10 +314,10 @@ class _GreetingCard extends StatelessWidget {
             spacing: 16,
             runSpacing: 12,
             children: [
-              _Chip(
-                icon: LucideIcons.flame,
-                label: 'Streak: ${stats.currentStreak} days',
-              ),
+          _Chip(
+            icon: LucideIcons.flame,
+            label: 'Streak: ${stats.currentStreak} days',
+          ),
               if (user?.location != null && user!.location!.isNotEmpty)
                 _Chip(
                   icon: LucideIcons.mapPin,
@@ -363,31 +387,86 @@ class _ActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final disabled = stats.hasCheckedInToday || isLoading;
+    final locked = ref.watch(checkInLockProvider);
+    final disabled = isLoading || locked;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        PrimaryButton(
-          label: stats.hasCheckedInToday ? 'Checked in today' : 'I am up',
-          isLoading: isLoading,
-          backgroundColor: const Color(0xFF86EFAC), // light green
-          foregroundColor: const Color(0xFF064E3B), // dark green text for contrast
-          onPressed: disabled
-              ? null
-              : () async {
-                  await ref.read(checkInControllerProvider.notifier).recordCheckIn();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Great job! Your check-in was saved.')),
-                    );
-                  }
-                },
+        // Two circular action buttons side-by-side
+        Row(
+          children: [
+            Expanded(
+              child: Opacity(
+                opacity: disabled ? 0.6 : 1.0,
+                child: InkWell(
+                  onTap: disabled
+                      ? null
+                      : () async {
+                          await ref.read(checkInControllerProvider.notifier).recordCheckIn();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Great job! Your check-in was saved.')),
+                            );
+                          }
+                          ref.read(checkInLockProvider.notifier).lock();
+                          ref.read(countdownRestartProvider.notifier).bump();
+                        },
+                  borderRadius: BorderRadius.circular(999),
+                  child: Container(
+                    height: 100,
+                    constraints: const BoxConstraints(minWidth: 100),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF16A34A), // rich green
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.all(8),
+                    child: const Text(
+                      'I am doing\nGreat!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: InkWell(
+                onTap: () => _openNeedHelpSheet(context),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  height: 100,
+                  constraints: const BoxConstraints(minWidth: 100),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF59E0B), // orange
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.all(8),
+                  child: const Text(
+                    'I am not\nfeeling well',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         FilledButton.icon(
           style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            backgroundColor: AppColors.danger,
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            minimumSize: const Size.fromHeight(64),
+            // Rich red
+            backgroundColor: const Color(0xFFB91C1C),
             foregroundColor: Colors.white,
           ),
           onPressed: () => _openNeedHelpSheet(context),
@@ -411,18 +490,13 @@ class _StatsGrid extends StatelessWidget {
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 600;
         return GridView.count(
-          crossAxisCount: isWide ? 3 : 1,
+          crossAxisCount: 1,
           shrinkWrap: true,
           childAspectRatio: isWide ? 2.5 : 3.2,
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
           physics: const NeverScrollableScrollPhysics(),
           children: [
-            StatCard(
-              label: 'Total check-ins',
-              value: stats.total.toString(),
-              icon: LucideIcons.calendarDays,
-            ),
             // Removed 'Current streak' and 'This week' per request.
             StatCard(
               label: 'Emergency contacts',
