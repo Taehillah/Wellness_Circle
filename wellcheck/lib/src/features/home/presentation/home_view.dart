@@ -126,7 +126,7 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
   // Use ref.read here; watching in initState triggers inherited access errors.
   Duration get _currentDuration => Duration(hours: ref.read(timerHoursProvider));
 
-  late Duration _remaining;
+  Duration _remaining = Duration.zero;
   Timer? _timer;
   bool _alertShown = false;
   ProviderSubscription<int>? _restartSub;
@@ -134,6 +134,16 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
   late final PreferencesService _prefs;
   static const String _kEndAtKey = 'wellcheck.countdown.end_at';
   DateTime? _endAt;
+  void _scheduleUnlockAndReminders() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(checkInLockProvider.notifier).unlock();
+      unawaited(ref.read(notificationsServiceProvider).startMinuteReminder(
+        title: 'Time to check in',
+        body: 'Tap the app and confirm: I am doing Great!',
+      ));
+    });
+  }
 
   @override
   void initState() {
@@ -169,10 +179,11 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
 
   void _resetTimer() {
     final now = DateTime.now();
-    _endAt = now.add(_currentDuration);
+    final end = now.add(_currentDuration);
+    _endAt = end;
     // Persist target end time so countdown continues across background/terminations.
-    unawaited(_prefs.setString(_kEndAtKey, _endAt!.millisecondsSinceEpoch.toString()));
-    _remaining = _endAt!.difference(now);
+    unawaited(_prefs.setString(_kEndAtKey, end.millisecondsSinceEpoch.toString()));
+    _remaining = end.difference(now);
     _alertShown = false;
     _cancelTimer();
     _startTimer();
@@ -184,10 +195,13 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
       if (!mounted) return;
       final now = DateTime.now();
       // Recompute remaining from persisted endAt to keep accurate while backgrounded.
-      if (_endAt == null) {
-        _endAt = now.add(_currentDuration);
+      var end = _endAt;
+      if (end == null) {
+        end = now.add(_currentDuration);
+        _endAt = end;
+        unawaited(_prefs.setString(_kEndAtKey, end.millisecondsSinceEpoch.toString()));
       }
-      _remaining = _endAt!.difference(now);
+      _remaining = end.difference(now);
       if (_remaining <= const Duration(seconds: 1)) {
         _remaining = Duration.zero;
         timer.cancel();
@@ -210,9 +224,10 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
         ));
         // Auto-restart countdown for the next cycle using current settings.
         setState(() {
-          _endAt = now.add(_currentDuration);
-          unawaited(_prefs.setString(_kEndAtKey, _endAt!.millisecondsSinceEpoch.toString()));
-          _remaining = _endAt!.difference(now);
+          final nextEnd = now.add(_currentDuration);
+          _endAt = nextEnd;
+          unawaited(_prefs.setString(_kEndAtKey, nextEnd.millisecondsSinceEpoch.toString()));
+          _remaining = nextEnd.difference(now);
           _alertShown = false;
         });
         _startTimer();
@@ -241,11 +256,7 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
           final diffSec = now.difference(end).inSeconds;
           final cycles = (diffSec ~/ spanSec) + 1;
           // Unlock and start reminders since at least one cycle completed while backgrounded.
-          ref.read(checkInLockProvider.notifier).unlock();
-          unawaited(ref.read(notificationsServiceProvider).startMinuteReminder(
-            title: 'Time to check in',
-            body: 'Tap the app and confirm: I am doing Great!',
-          ));
+          _scheduleUnlockAndReminders();
           end = end.add(Duration(seconds: cycles * spanSec));
         }
         _endAt = end;

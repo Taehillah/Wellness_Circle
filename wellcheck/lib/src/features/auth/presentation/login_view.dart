@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/router/app_router.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/three_circles_logo.dart';
-import 'package:flutter/services.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../application/auth_controller.dart';
 import '../../../shared/providers/shared_providers.dart';
@@ -63,17 +62,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                // Exit button (Android) in the top-right of the auth panel
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: IconButton(
-                    tooltip: 'Exit',
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () {
-                      SystemNavigator.pop();
-                    },
-                  ),
-                ),
                 const ThreeCirclesLogo(size: 72, color: Colors.white, strokeWidth: 5, overlap: 16),
                 const SizedBox(height: 16),
                 Text(
