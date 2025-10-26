@@ -23,6 +23,8 @@ import '../../circle/application/circle_overview_provider.dart';
 import '../../circle/data/models/circle_alert_summary.dart';
 import '../../circle/data/models/circle_member.dart';
 import '../../circle/data/models/circle_stats.dart';
+import '../../circle/presentation/circle_join_sheet.dart';
+import '../../circle/presentation/circle_share_sheet.dart';
 import '../../../shared/services/preferences_service.dart';
 
 const List<Color> _heroGradientColors = [
@@ -473,13 +475,29 @@ class _CircleModeView extends ConsumerWidget {
   }
 }
 
-class _CircleModeHeader extends StatelessWidget {
+class _CircleModeHeader extends ConsumerWidget {
   const _CircleModeHeader({required this.stats});
 
   final CircleStats stats;
 
+  void _openShareSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const CircleShareSheet(),
+    );
+  }
+
+  void _openJoinSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const CircleJoinSheet(),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final memberCount = stats.totalMembers;
     final attention = stats.needsAttention;
@@ -552,6 +570,31 @@ class _CircleModeHeader extends StatelessWidget {
                     ),
                   ),
                 ],
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => _openShareSheet(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white70),
+                      ),
+                      icon: const Icon(LucideIcons.qrCode),
+                      label: const Text('Share circle'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => _openJoinSheet(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white70),
+                      ),
+                      icon: const Icon(LucideIcons.userPlus),
+                      label: const Text('Join a circle'),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

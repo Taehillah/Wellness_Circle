@@ -222,6 +222,24 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
+  Future<void> refreshCurrentSession() async {
+    if (state.session == null) {
+      return;
+    }
+    try {
+      final response = await _repository.fetchCurrentUser();
+      final session = AuthSession(token: response.token, user: response.user);
+      await _persistSession(session);
+      _setSession(session);
+    } on HttpRequestException catch (error) {
+      state = state.copyWith(errorMessage: error.message);
+      rethrow;
+    } catch (error) {
+      state = state.copyWith(errorMessage: error.toString());
+      rethrow;
+    }
+  }
+
   Future<void> resetPassword({
     required String email,
     required String newPassword,
