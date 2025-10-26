@@ -3,17 +3,18 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod/riverpod.dart';
+import 'package:uuid/uuid.dart';
 
+import '../../../shared/network/http_exception.dart';
 import '../../../shared/services/geolocation_service.dart';
 import '../../../shared/settings/settings_controller.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/data/models/auth_session.dart';
-import '../data/alerts_repository.dart';
-import '../data/models/help_location.dart';
 import '../../../shared/providers/shared_providers.dart';
-import 'package:uuid/uuid.dart';
+import '../data/alerts_repository.dart';
 import '../data/models/help_request.dart';
 import '../data/models/need_help_payload.dart';
+import '../data/models/help_location.dart';
 
 class EmergencyState {
   const EmergencyState({
@@ -183,12 +184,21 @@ class EmergencyController extends Notifier<EmergencyState> {
       statusMessage: null,
       errorMessage: null,
     );
+    String? fallbackMessage;
     try {
       final payload = NeedHelpPayload(
         message: message,
         location: state.location,
       );
-      final request = await _alertsRepository.sendNeedHelp(payload);
+      HelpRequest? request;
+      try {
+        request = await _alertsRepository.sendNeedHelp(payload);
+      } on HttpRequestException catch (error) {
+        debugPrint('Failed to notify backend about help request: $error');
+        fallbackMessage = error.isConnectivity
+            ? 'We could not reach the remote help desk, but your circle has been notified.'
+            : 'Help desk is unavailable right now, but your circle has been notified.';
+      }
       await _recordAlertInFirestore(
         session: session,
         payload: payload,
@@ -209,7 +219,8 @@ class EmergencyController extends Notifier<EmergencyState> {
       state = state.copyWith(
         isSending: false,
         lastRequest: request,
-        statusMessage: 'Help request sent. Our team will reach out.',
+        statusMessage:
+            fallbackMessage ?? 'Help request sent. Our team will reach out.',
       );
     } catch (error) {
       state = state.copyWith(isSending: false, errorMessage: error.toString());
@@ -235,7 +246,7 @@ class EmergencyController extends Notifier<EmergencyState> {
       final coordsText = location == null
           ? null
           : 'Lat ${location.lat.toStringAsFixed(4)}, '
-              'Lng ${location.lng.toStringAsFixed(4)}';
+                'Lng ${location.lng.toStringAsFixed(4)}';
       final locationText = location == null
           ? null
           : (() {
