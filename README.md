@@ -1,11 +1,12 @@
 # Wellness Circle Flutter Client
 
-A multi-platform Flutter client for the Wellness Circle wellbeing platform. The app targets iOS, Android, web, and desktop and speaks to the existing Node/Express backend (`http://localhost:4000` by default). It replaces the former React client with a state-driven Flutter experience that keeps daily check-ins, emergency alerts, contact management, and the admin dashboard in sync across platforms.
+A multi-platform Flutter client for the Wellness Circle wellbeing platform. The app targets iOS, Android, web, and desktop and now relies on Firebase (Auth + Firestore) alongside the Node/Express backend (`http://localhost:4000` by default). It replaces the former React client with a state-driven Flutter experience that keeps daily check-ins, emergency alerts, contact management, and the circle dashboard in sync across platforms.
 
 ## Key Capabilities
 - Daily wellness check-ins with streak tracking, a configurable countdown timer, and minute-level Android reminders (`flutter_local_notifications`).
 - Emergency “Need help” flow with optional geolocation, plus offline logging of requests to an on-device SQLite database for audit recovery.
 - Contact book CRUD with preferred contact selection, quick dial actions, and seeded demo data for sample accounts.
+- Circle tab fed by Firestore streams that groups members by status, surfaces recent alerts, and gracefully falls back to demo data when Firebase isn’t configured.
 - Role-aware admin dashboard with metrics, activity charts, and recent help requests.
 - Settings screen for theme mode, reminder interval, location sharing, and preferred contact—persisted per user via `SharedPreferences`.
 - Biometric unlock (Face ID / Touch ID / device credential) that protects the stored session and allows returning users to resume instantly.
@@ -31,7 +32,7 @@ lib/
      ├─ dashboard/                        // Admin metrics and recent requests
      └─ settings/                         // Settings screen presentation widgets
 ```
-Riverpod 3’s `Notifier` API drives state. Feature-first folders collocate domain logic, repositories, and presentation, while shared services (HTTP client, preferences, notifications, local DB, biometrics, geolocation) are injected through providers to keep testing simple.
+Riverpod 3’s `Notifier` API drives state. Feature-first folders collocate domain logic, repositories, and presentation, while shared services (Firebase, HTTP client, preferences, notifications, local DB, biometrics, geolocation) are injected through providers to keep testing simple.
 
 ### Shared Services Initialisation
 `src/bootstrap.dart` wires up the app by:

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,10 +9,14 @@ import 'models/auth_response.dart';
 import 'models/auth_user.dart';
 
 class AuthRepository {
-  AuthRepository(this._auth, this._database);
+  AuthRepository(this._auth, this._firestore, this._database);
 
   final FirebaseAuth _auth;
+  final FirebaseFirestore _firestore;
   final AppDatabase _database;
+
+  CollectionReference<Map<String, dynamic>> get _usersCollection =>
+      _firestore.collection('users');
 
   int _stableIdFromEmail(String email) {
     final e = email.trim().toLowerCase();
@@ -37,49 +42,27 @@ class AuthRepository {
         throw const HttpRequestException('Authentication failed. Try again.');
       }
 
-      final now = DateTime.now();
-      final existing = await _database.getMemberByEmail(normalizedEmail);
-      AuthUser user;
-      if (existing != null) {
-        user = _userFromRecord(existing).copyWith(
-          name: firebaseUser.displayName?.trim().isNotEmpty == true
-              ? firebaseUser.displayName!.trim()
-              : null,
-          updatedAt: now,
-        );
-        await _database.upsertMember(
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          phone: existing['phone'] as String?,
-          location: user.location,
-          dateOfBirth: user.dateOfBirth,
-          userType: user.userType,
-          createdAt: user.createdAt,
-          updatedAt: now,
-          password: '',
-        );
-      } else {
-        user = _guestUserForEmail(normalizedEmail, now).copyWith(
-          name: firebaseUser.displayName?.trim().isNotEmpty == true
-              ? firebaseUser.displayName!.trim()
-              : null,
-        );
-        await _database.upsertMember(
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          phone: firebaseUser.phoneNumber,
-          location: user.location,
-          dateOfBirth: user.dateOfBirth,
-          userType: user.userType,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-          password: '',
-        );
-      }
+      await _ensureFirestoreUser(firebaseUser, normalizedEmail);
+      final userDoc = await _usersCollection.doc(firebaseUser.uid).get();
+      final firestoreData = userDoc.data();
 
-      final String? token = await firebaseUser.getIdToken();
+      final existingLocal = await _database.getMemberByEmail(normalizedEmail);
+      final user = firestoreData != null
+          ? _authUserFromFirestore(
+              firebaseUser: firebaseUser,
+              data: firestoreData,
+              fallbackEmail: normalizedEmail,
+            )
+          : existingLocal != null
+          ? _userFromRecord(existingLocal)
+          : _guestUserForEmail(
+              normalizedEmail,
+              firebaseUser.metadata.lastSignInTime ?? DateTime.now(),
+            );
+
+      await _persistLocalProfile(user, firebaseUser.phoneNumber);
+
+      final token = await firebaseUser.getIdToken();
       if (token == null || token.isEmpty) {
         throw const HttpRequestException('Unable to retrieve session token.');
       }
@@ -117,34 +100,31 @@ class AuthRepository {
       final displayName = name.trim().isEmpty ? 'New User' : name.trim();
       await firebaseUser.updateDisplayName(displayName);
 
+      await _createFirestoreUser(
+        uid: firebaseUser.uid,
+        email: firebaseUser.email ?? normalizedEmail,
+        displayName: displayName,
+        userType: userType,
+        location: location,
+        dateOfBirth: dateOfBirth,
+      );
+
       final now = DateTime.now();
-      final defaultDob = DateTime(now.year - 40, 1, 1);
       final user = AuthUser(
         id: _stableIdFromEmail(normalizedEmail),
         name: displayName,
         email: normalizedEmail,
         role: 'user',
         location: location?.trim().isEmpty ?? true ? 'Local' : location!.trim(),
-        dateOfBirth: dateOfBirth ?? defaultDob,
+        dateOfBirth: dateOfBirth ?? DateTime(now.year - 40, 1, 1),
         userType: userType,
         createdAt: now,
         updatedAt: now,
       );
 
-      await _database.upsertMember(
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: firebaseUser.phoneNumber,
-        location: user.location,
-        dateOfBirth: user.dateOfBirth,
-        userType: user.userType,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-        password: '',
-      );
+      await _persistLocalProfile(user, firebaseUser.phoneNumber);
 
-      final String? token = await firebaseUser.getIdToken();
+      final token = await firebaseUser.getIdToken();
       if (token == null || token.isEmpty) {
         throw const HttpRequestException('Unable to retrieve session token.');
       }
@@ -182,16 +162,131 @@ class AuthRepository {
       );
     }
     final normalizedEmail = email.toLowerCase();
-    final record = await _database.getMemberByEmail(normalizedEmail);
-    if (record == null) {
+    final docSnapshot = await _usersCollection.doc(firebaseUser.uid).get();
+    final data = docSnapshot.data();
+    final localRecord = await _database.getMemberByEmail(normalizedEmail);
+
+    if (data == null && localRecord == null) {
       throw const HttpRequestException('No profile found for this account.');
     }
-    final user = _userFromRecord(record);
-    final String? token = await firebaseUser.getIdToken();
+
+    final user = data != null
+        ? _authUserFromFirestore(
+            firebaseUser: firebaseUser,
+            data: data,
+            fallbackEmail: normalizedEmail,
+          )
+        : _userFromRecord(localRecord!);
+
+    if (localRecord == null) {
+      await _persistLocalProfile(user, firebaseUser.phoneNumber);
+    }
+
+    final token = await firebaseUser.getIdToken();
     if (token == null || token.isEmpty) {
       throw const HttpRequestException('Unable to retrieve session token.');
     }
     return AuthResponse(token: token, user: user);
+  }
+
+  Future<void> _ensureFirestoreUser(
+    User firebaseUser,
+    String fallbackEmail,
+  ) async {
+    final docRef = _usersCollection.doc(firebaseUser.uid);
+    final snapshot = await docRef.get();
+    if (!snapshot.exists) {
+      await _createFirestoreUser(
+        uid: firebaseUser.uid,
+        email: firebaseUser.email ?? fallbackEmail,
+        displayName: firebaseUser.displayName,
+        userType: 'Pensioner',
+      );
+    } else {
+      await docRef.update({
+        'lastSignInAt': FieldValue.serverTimestamp(),
+        'lastSignInAtLocal':
+            (firebaseUser.metadata.lastSignInTime ?? DateTime.now())
+                .toIso8601String(),
+      });
+    }
+  }
+
+  Future<void> _createFirestoreUser({
+    required String uid,
+    required String email,
+    String? displayName,
+    String? userType,
+    String? location,
+    DateTime? dateOfBirth,
+  }) async {
+    final now = DateTime.now();
+    await _usersCollection.doc(uid).set({
+      'email': email.toLowerCase(),
+      'name': displayName?.trim().isNotEmpty == true
+          ? displayName!.trim()
+          : email.split('@').first,
+      'role': 'user',
+      'legacyId': _stableIdFromEmail(email),
+      'userType': userType ?? 'Pensioner',
+      'location': location?.trim(),
+      'dateOfBirth': dateOfBirth?.toIso8601String(),
+      'createdAt': FieldValue.serverTimestamp(),
+      'createdAtLocal': now.toIso8601String(),
+      'lastSignInAt': FieldValue.serverTimestamp(),
+      'lastSignInAtLocal': now.toIso8601String(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> _persistLocalProfile(AuthUser user, String? phone) async {
+    await _database.upsertMember(
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: phone,
+      location: user.location,
+      dateOfBirth: user.dateOfBirth,
+      userType: user.userType,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      password: '',
+    );
+  }
+
+  AuthUser _authUserFromFirestore({
+    required User firebaseUser,
+    required Map<String, dynamic> data,
+    required String fallbackEmail,
+  }) {
+    final email = (data['email'] as String? ?? fallbackEmail).toLowerCase();
+    final legacyId = data['legacyId'] as int? ?? _stableIdFromEmail(email);
+    final name = (data['name'] as String?)?.trim();
+    final location = (data['location'] as String?)?.trim();
+    final dobRaw = data['dateOfBirth'] as String?;
+    final createdAtRaw =
+        data['createdAtLocal'] as String? ?? data['createdAt']?.toString();
+    final updatedAtRaw =
+        data['lastSignInAtLocal'] as String? ??
+        data['lastSignInAt']?.toString();
+    return AuthUser(
+      id: legacyId,
+      name: name?.isNotEmpty == true
+          ? name!
+          : (firebaseUser.displayName ?? 'Member'),
+      email: email,
+      role: (data['role'] as String?) ?? 'user',
+      location: location,
+      dateOfBirth: dobRaw == null || dobRaw.isEmpty
+          ? null
+          : DateTime.tryParse(dobRaw),
+      userType: (data['userType'] as String?) ?? 'Pensioner',
+      createdAt: createdAtRaw == null
+          ? DateTime.now()
+          : DateTime.tryParse(createdAtRaw) ?? DateTime.now(),
+      updatedAt: updatedAtRaw == null
+          ? DateTime.now()
+          : DateTime.tryParse(updatedAtRaw) ?? DateTime.now(),
+    );
   }
 
   AuthUser _userFromRecord(Map<String, dynamic> record) {
@@ -285,5 +380,6 @@ class AuthRepository {
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final db = ref.watch(appDatabaseProvider);
   final auth = FirebaseAuth.instance;
-  return AuthRepository(auth, db);
+  final firestore = FirebaseFirestore.instance;
+  return AuthRepository(auth, firestore, db);
 });
