@@ -31,33 +31,28 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'TODO_WEB_API_KEY',
-    appId: 'TODO_WEB_APP_ID',
-    messagingSenderId: 'TODO_SENDER_ID',
-    projectId: 'TODO_PROJECT_ID',
-    authDomain: 'TODO_AUTH_DOMAIN',
-    databaseURL: 'https://TODO_PROJECT_ID.firebaseio.com',
-    storageBucket: 'TODO_PROJECT_ID.appspot.com',
-    measurementId: 'TODO_MEASUREMENT_ID',
+    apiKey: 'AIzaSyCgAe6XJdy7_oSgfwz90a3C1YRngHs-SOA',
+    appId: '1:1025344800013:web:0a36162da2dbe30e0b5c44',
+    messagingSenderId: '1025344800013',
+    projectId: 'wellnesscircle',
+    authDomain: 'wellnesscircle.firebaseapp.com',
+    storageBucket: 'wellnesscircle.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'TODO_ANDROID_API_KEY',
-    appId: '1:TODO_ANDROID:android:TODO',
-    messagingSenderId: 'TODO_SENDER_ID',
-    projectId: 'TODO_PROJECT_ID',
-    databaseURL: 'https://TODO_PROJECT_ID.firebaseio.com',
-    storageBucket: 'TODO_PROJECT_ID.appspot.com',
+    apiKey: 'AIzaSyA6-Y5KQyYwlEBaSly4ZpfNfUAzCV2ICgE',
+    appId: '1:1025344800013:android:77f5549b4d2e26440b5c44',
+    messagingSenderId: '1025344800013',
+    projectId: 'wellnesscircle',
+    storageBucket: 'wellnesscircle.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'TODO_IOS_API_KEY',
-    appId: '1:TODO_IOS:ios:TODO',
-    messagingSenderId: 'TODO_SENDER_ID',
-    projectId: 'TODO_PROJECT_ID',
-    databaseURL: 'https://TODO_PROJECT_ID.firebaseio.com',
-    storageBucket: 'TODO_PROJECT_ID.appspot.com',
-    iosClientId: 'TODO_IOS_CLIENT_ID',
+    apiKey: 'AIzaSyC8dbbRdlXTfhhaz5nf47tHmZW599NrJWI',
+    appId: '1:1025344800013:ios:483370014f4547080b5c44',
+    messagingSenderId: '1025344800013',
+    projectId: 'wellnesscircle',
+    storageBucket: 'wellnesscircle.firebasestorage.app',
     iosBundleId: 'com.example.wellcheck',
   );
 

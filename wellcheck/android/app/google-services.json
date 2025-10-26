@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1025344800013",
+    "project_id": "wellnesscircle",
+    "storage_bucket": "wellnesscircle.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1025344800013:android:77f5549b4d2e26440b5c44",
+        "android_client_info": {
+          "package_name": "com.example.wellcheck"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6-Y5KQyYwlEBaSly4ZpfNfUAzCV2ICgE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
