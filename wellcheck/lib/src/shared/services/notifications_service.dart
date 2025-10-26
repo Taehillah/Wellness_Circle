@@ -5,6 +5,9 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationsService {
   static const int _reminderId = 1001;
+  static const int _alertId = 2001;
+  static const String _reminderChannelId = 'wellcheck_reminders';
+  static const String _alertChannelId = 'wellcheck_alerts';
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -27,12 +30,22 @@ class NotificationsService {
     final androidPlugin =
         _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.requestNotificationsPermission();
-    await androidPlugin?.createNotificationChannel(const AndroidNotificationChannel(
-      'wellcheck_reminders',
-      'Wellness Circle Reminders',
-      description: 'Wellness Circle reminders to check in',
-      importance: Importance.high,
-    ));
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _reminderChannelId,
+        'Wellness Circle Reminders',
+        description: 'Wellness Circle reminders to check in',
+        importance: Importance.high,
+      ),
+    );
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _alertChannelId,
+        'Wellness Circle Alerts',
+        description: 'Wellness Circle emergency and circle alerts',
+        importance: Importance.high,
+      ),
+    );
     _initialized = true;
   }
 
@@ -40,7 +53,7 @@ class NotificationsService {
     await init();
     if (kIsWeb || !Platform.isAndroid) return;
     const androidDetails = AndroidNotificationDetails(
-      'wellcheck_reminders',
+      _reminderChannelId,
       'Wellness Circle Reminders',
       channelDescription: 'Wellness Circle reminders to check in',
       importance: Importance.high,
@@ -63,5 +76,22 @@ class NotificationsService {
     if (!_initialized) return;
     if (kIsWeb || !Platform.isAndroid) return;
     await _plugin.cancel(_reminderId);
+  }
+
+  Future<void> showAlertNotification({
+    required String title,
+    String? body,
+  }) async {
+    await init();
+    if (kIsWeb || !Platform.isAndroid) return;
+    const androidDetails = AndroidNotificationDetails(
+      _alertChannelId,
+      'Wellness Circle Alerts',
+      channelDescription: 'Wellness Circle emergency and circle alerts',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    const details = NotificationDetails(android: androidDetails);
+    await _plugin.show(_alertId, title, body, details);
   }
 }

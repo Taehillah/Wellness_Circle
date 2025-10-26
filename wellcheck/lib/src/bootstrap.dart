@@ -11,6 +11,7 @@ import '../firebase_options.dart';
 import 'shared/providers/shared_providers.dart';
 import 'shared/services/notifications_service.dart';
 import 'shared/services/app_database.dart';
+import 'shared/services/messaging_service.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +36,8 @@ Future<void> bootstrap() async {
   final prefs = await SharedPreferences.getInstance();
   final notifications = NotificationsService();
   await notifications.init();
+  final messaging = MessagingService(notifications);
+  await messaging.init();
   final database = AppDatabase();
   await database.init();
 
@@ -47,6 +50,7 @@ Future<void> bootstrap() async {
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
         notificationsServiceProvider.overrideWithValue(notifications),
+        messagingServiceProvider.overrideWithValue(messaging),
         appDatabaseProvider.overrideWithValue(database),
       ],
       child: const App(),

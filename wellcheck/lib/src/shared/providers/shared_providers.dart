@@ -5,6 +5,7 @@ import '../config/app_config.dart';
 import '../services/notifications_service.dart';
 import '../services/app_database.dart';
 import '../services/biometric_service.dart';
+import '../services/messaging_service.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError(
@@ -19,6 +20,12 @@ final appConfigProvider = Provider<AppConfig>((ref) {
 final notificationsServiceProvider = Provider<NotificationsService>((ref) {
   throw UnimplementedError(
     'NotificationsService has not been initialized. Did you forget to override notificationsServiceProvider in bootstrap?',
+  );
+});
+
+final messagingServiceProvider = Provider<MessagingService>((ref) {
+  throw UnimplementedError(
+    'MessagingService has not been initialized. Did you forget to override messagingServiceProvider in bootstrap?',
   );
 });
 

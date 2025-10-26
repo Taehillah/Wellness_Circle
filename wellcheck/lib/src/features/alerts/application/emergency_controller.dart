@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:riverpod/riverpod.dart';
 
 import '../../../shared/services/geolocation_service.dart';
@@ -187,6 +189,11 @@ class EmergencyController extends Notifier<EmergencyState> {
         location: state.location,
       );
       final request = await _alertsRepository.sendNeedHelp(payload);
+      await _recordAlertInFirestore(
+        session: session,
+        payload: payload,
+        request: request,
+      );
       // Also persist the help request locally for control centre records.
       final db = ref.read(appDatabaseProvider);
       final uuid = const Uuid();
@@ -211,6 +218,69 @@ class EmergencyController extends Notifier<EmergencyState> {
 
   void clearStatus() {
     state = state.copyWith(statusMessage: null, errorMessage: null);
+  }
+
+  Future<void> _recordAlertInFirestore({
+    required AuthSession session,
+    required NeedHelpPayload payload,
+    HelpRequest? request,
+  }) async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final circleId = 'circle-${session.user.id}';
+      final circleDoc = firestore.collection('circles').doc(circleId);
+      final alertsCollection = circleDoc.collection('alerts');
+
+      final location = payload.location;
+      final coordsText = location == null
+          ? null
+          : 'Lat ${location.lat.toStringAsFixed(4)}, '
+              'Lng ${location.lng.toStringAsFixed(4)}';
+      final locationText = location == null
+          ? null
+          : (() {
+              final address = location.address?.trim();
+              if (address == null || address.isEmpty || address == coordsText) {
+                return coordsText;
+              }
+              return '$address\n$coordsText';
+            })();
+
+      final alertData = <String, dynamic>{
+        'senderId': session.user.id,
+        'senderName': session.user.name,
+        'senderEmail': session.user.email,
+        if (request != null) 'requestId': request.id,
+        if (payload.message != null && payload.message!.isNotEmpty)
+          'message': payload.message,
+        if (location != null)
+          'location': {
+            'lat': location.lat,
+            'lng': location.lng,
+            if (location.address != null) 'address': location.address,
+          },
+        if (locationText != null) 'locationText': locationText,
+        'status': 'open',
+        'createdAt': FieldValue.serverTimestamp(),
+        'createdAtLocal': DateTime.now().toIso8601String(),
+      };
+
+      final alertDoc = request == null
+          ? alertsCollection.doc()
+          : alertsCollection.doc(request.id.toString());
+      await alertDoc.set(alertData, SetOptions(merge: true));
+
+      final membersCollection = circleDoc.collection('members');
+      await membersCollection.doc(session.user.id.toString()).set({
+        'displayName': session.user.name,
+        'lastAlertAt': FieldValue.serverTimestamp(),
+        'lastAlertAtLocal': DateTime.now().toIso8601String(),
+        'status': 'needsAttention',
+      }, SetOptions(merge: true));
+    } catch (error, stackTrace) {
+      debugPrint('Failed to record help alert in Firestore: $error');
+      debugPrint('$stackTrace');
+    }
   }
 }
 
