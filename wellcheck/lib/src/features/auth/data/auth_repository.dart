@@ -1,7 +1,6 @@
-import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../shared/network/dio_client.dart';
 import '../../../shared/network/http_exception.dart';
 import '../../../shared/providers/shared_providers.dart';
 import '../../../shared/services/app_database.dart';
@@ -9,9 +8,9 @@ import 'models/auth_response.dart';
 import 'models/auth_user.dart';
 
 class AuthRepository {
-  AuthRepository(this._dio, this._database);
+  AuthRepository(this._auth, this._database);
 
-  final Dio _dio;
+  final FirebaseAuth _auth;
   final AppDatabase _database;
 
   int _stableIdFromEmail(String email) {
@@ -28,47 +27,66 @@ class AuthRepository {
     required String password,
   }) async {
     final normalizedEmail = email.trim().toLowerCase();
-    final now = DateTime.now();
-    final record = await _database.getMemberByEmail(normalizedEmail);
-
-    if (record != null) {
-      final storedPassword = (record['password'] as String?) ?? '';
-      final user = _userFromRecord(record).copyWith(updatedAt: now);
-
-      await _database.upsertMember(
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: record['phone'] as String?,
-        location: user.location,
-        dateOfBirth: user.dateOfBirth,
-        userType: user.userType,
-        createdAt: user.createdAt,
-        updatedAt: now,
-        password: storedPassword,
+    try {
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: normalizedEmail,
+        password: password,
       );
+      final firebaseUser = credential.user;
+      if (firebaseUser == null) {
+        throw const HttpRequestException('Authentication failed. Try again.');
+      }
 
-      final token = 'offline-$normalizedEmail';
+      final now = DateTime.now();
+      final existing = await _database.getMemberByEmail(normalizedEmail);
+      AuthUser user;
+      if (existing != null) {
+        user = _userFromRecord(existing).copyWith(
+          name: firebaseUser.displayName?.trim().isNotEmpty == true
+              ? firebaseUser.displayName!.trim()
+              : null,
+          updatedAt: now,
+        );
+        await _database.upsertMember(
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phone: existing['phone'] as String?,
+          location: user.location,
+          dateOfBirth: user.dateOfBirth,
+          userType: user.userType,
+          createdAt: user.createdAt,
+          updatedAt: now,
+          password: '',
+        );
+      } else {
+        user = _guestUserForEmail(normalizedEmail, now).copyWith(
+          name: firebaseUser.displayName?.trim().isNotEmpty == true
+              ? firebaseUser.displayName!.trim()
+              : null,
+        );
+        await _database.upsertMember(
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phone: firebaseUser.phoneNumber,
+          location: user.location,
+          dateOfBirth: user.dateOfBirth,
+          userType: user.userType,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+          password: '',
+        );
+      }
+
+      final String? token = await firebaseUser.getIdToken();
+      if (token == null || token.isEmpty) {
+        throw const HttpRequestException('Unable to retrieve session token.');
+      }
       return AuthResponse(token: token, user: user);
+    } on FirebaseAuthException catch (error) {
+      throw _mapFirebaseAuthException(error);
     }
-
-    final newUser = _guestUserForEmail(normalizedEmail, now);
-
-    await _database.upsertMember(
-      id: newUser.id,
-      name: newUser.name,
-      email: newUser.email,
-      phone: null,
-      location: newUser.location,
-      dateOfBirth: newUser.dateOfBirth,
-      userType: newUser.userType,
-      createdAt: newUser.createdAt,
-      updatedAt: newUser.updatedAt,
-      password: password.trim(),
-    );
-
-    final token = 'offline-$normalizedEmail';
-    return AuthResponse(token: token, user: newUser);
   }
 
   Future<AuthResponse> register({
@@ -85,68 +103,95 @@ class AuthRepository {
     }
 
     final normalizedEmail = email.trim().toLowerCase();
-    final existing = await _database.getMemberByEmail(normalizedEmail);
-    if (existing != null) {
-      throw const HttpRequestException('An account with this email already exists');
+    try {
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: normalizedEmail,
+        password: password,
+      );
+      final firebaseUser = credential.user;
+      if (firebaseUser == null) {
+        throw const HttpRequestException(
+          'Unable to create account. Try again.',
+        );
+      }
+      final displayName = name.trim().isEmpty ? 'New User' : name.trim();
+      await firebaseUser.updateDisplayName(displayName);
+
+      final now = DateTime.now();
+      final defaultDob = DateTime(now.year - 40, 1, 1);
+      final user = AuthUser(
+        id: _stableIdFromEmail(normalizedEmail),
+        name: displayName,
+        email: normalizedEmail,
+        role: 'user',
+        location: location?.trim().isEmpty ?? true ? 'Local' : location!.trim(),
+        dateOfBirth: dateOfBirth ?? defaultDob,
+        userType: userType,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      await _database.upsertMember(
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: firebaseUser.phoneNumber,
+        location: user.location,
+        dateOfBirth: user.dateOfBirth,
+        userType: user.userType,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        password: '',
+      );
+
+      final String? token = await firebaseUser.getIdToken();
+      if (token == null || token.isEmpty) {
+        throw const HttpRequestException('Unable to retrieve session token.');
+      }
+      return AuthResponse(token: token, user: user);
+    } on FirebaseAuthException catch (error) {
+      throw _mapFirebaseAuthException(error);
     }
-
-    final now = DateTime.now();
-    final defaultDob = DateTime(now.year - 40, 1, 1);
-    final user = AuthUser(
-      id: _stableIdFromEmail(normalizedEmail),
-      name: name.trim().isEmpty ? 'New User' : name.trim(),
-      email: normalizedEmail,
-      role: 'user',
-      location: location?.trim().isEmpty ?? true ? 'Local' : location!.trim(),
-      dateOfBirth: dateOfBirth ?? defaultDob,
-      userType: userType,
-      createdAt: now,
-      updatedAt: now,
-    );
-
-    await _database.upsertMember(
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: null,
-      location: user.location,
-      dateOfBirth: user.dateOfBirth,
-      userType: user.userType,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      password: password.trim(),
-    );
-
-    final token = 'offline-$normalizedEmail';
-    return AuthResponse(token: token, user: user);
   }
 
   Future<void> resetPassword({
     required String email,
     required String newPassword,
   }) async {
-    if (newPassword.trim().length < 8) {
-      throw const HttpRequestException('Password must be at least 8 characters long');
-    }
     final normalizedEmail = email.trim().toLowerCase();
-    final exists = await _database.updateMemberPassword(
-      email: normalizedEmail,
-      newPassword: newPassword.trim(),
-    );
-    if (!exists) {
-      throw const HttpRequestException('Account not found for the provided email');
+    try {
+      await _auth.sendPasswordResetEmail(email: normalizedEmail);
+    } on FirebaseAuthException catch (error) {
+      throw _mapFirebaseAuthException(error);
     }
   }
 
   Future<void> logout() async {
-    return;
+    await _auth.signOut();
   }
 
   Future<AuthResponse> fetchCurrentUser({String? fallbackToken}) async {
-    throw const HttpRequestException(
-      'Offline mode: using saved session',
-      isConnectivity: true,
-    );
+    final firebaseUser = _auth.currentUser;
+    if (firebaseUser == null) {
+      throw const HttpRequestException('No authenticated session found.');
+    }
+    final email = firebaseUser.email;
+    if (email == null) {
+      throw const HttpRequestException(
+        'Authenticated user has no email address.',
+      );
+    }
+    final normalizedEmail = email.toLowerCase();
+    final record = await _database.getMemberByEmail(normalizedEmail);
+    if (record == null) {
+      throw const HttpRequestException('No profile found for this account.');
+    }
+    final user = _userFromRecord(record);
+    final String? token = await firebaseUser.getIdToken();
+    if (token == null || token.isEmpty) {
+      throw const HttpRequestException('Unable to retrieve session token.');
+    }
+    return AuthResponse(token: token, user: user);
   }
 
   AuthUser _userFromRecord(Map<String, dynamic> record) {
@@ -154,15 +199,21 @@ class AuthRepository {
     final location = record['location'] as String?;
     final dobRaw = record['date_of_birth'] as String?;
     final userType = record['user_type'] as String? ?? 'Pensioner';
-    final createdAt = DateTime.tryParse(record['created_at'] as String? ?? '') ?? DateTime.now();
-    final updatedAt = DateTime.tryParse(record['updated_at'] as String? ?? '') ?? DateTime.now();
+    final createdAt =
+        DateTime.tryParse(record['created_at'] as String? ?? '') ??
+        DateTime.now();
+    final updatedAt =
+        DateTime.tryParse(record['updated_at'] as String? ?? '') ??
+        DateTime.now();
     return AuthUser(
       id: record['id'] as int,
       name: record['name'] as String,
       email: email,
       role: 'user',
       location: location,
-      dateOfBirth: dobRaw == null || dobRaw.isEmpty ? null : DateTime.tryParse(dobRaw),
+      dateOfBirth: dobRaw == null || dobRaw.isEmpty
+          ? null
+          : DateTime.tryParse(dobRaw),
       userType: userType,
       createdAt: createdAt,
       updatedAt: updatedAt,
@@ -171,19 +222,22 @@ class AuthRepository {
 
   AuthUser _guestUserForEmail(String email, DateTime timestamp) {
     final localPart = email.contains('@') ? email.split('@').first : email;
-    final sanitized = localPart.replaceAll(RegExp(r'[^a-zA-Z0-9]+'), ' ').trim();
-    final nameParts =
-        sanitized.isEmpty ? <String>[] : sanitized.split(RegExp(r'\s+'));
+    final sanitized = localPart
+        .replaceAll(RegExp(r'[^a-zA-Z0-9]+'), ' ')
+        .trim();
+    final nameParts = sanitized.isEmpty
+        ? <String>[]
+        : sanitized.split(RegExp(r'\s+'));
     final friendlyName = nameParts.isEmpty
         ? 'Guest User'
         : nameParts
-            .map(
-              (part) => part.isEmpty
-                  ? part
-                  : '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
-            )
-            .join(' ')
-            .trim();
+              .map(
+                (part) => part.isEmpty
+                    ? part
+                    : '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+              )
+              .join(' ')
+              .trim();
     final defaultDob = DateTime(timestamp.year - 40, 1, 1);
 
     return AuthUser(
@@ -198,10 +252,38 @@ class AuthRepository {
       updatedAt: timestamp,
     );
   }
+
+  HttpRequestException _mapFirebaseAuthException(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'user-not-found':
+      case 'wrong-password':
+        return const HttpRequestException('Invalid email or password');
+      case 'invalid-email':
+        return const HttpRequestException('Enter a valid email address');
+      case 'user-disabled':
+        return const HttpRequestException(
+          'This account has been disabled. Contact support.',
+        );
+      case 'email-already-in-use':
+        return const HttpRequestException(
+          'An account with this email already exists',
+        );
+      case 'weak-password':
+        return const HttpRequestException(
+          'Choose a stronger password (min 6 characters).',
+        );
+      case 'too-many-requests':
+        return const HttpRequestException(
+          'Too many attempts. Please wait a moment and try again.',
+        );
+      default:
+        return HttpRequestException(error.message ?? 'Authentication error');
+    }
+  }
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  final dio = ref.watch(dioProvider);
   final db = ref.watch(appDatabaseProvider);
-  return AuthRepository(dio, db);
+  final auth = FirebaseAuth.instance;
+  return AuthRepository(auth, db);
 });

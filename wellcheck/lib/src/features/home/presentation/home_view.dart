@@ -11,7 +11,6 @@ import '../../alerts/presentation/need_help_sheet.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/data/models/auth_user.dart';
 import '../../contacts/application/contacts_controller.dart';
-import '../../contacts/data/models/contact.dart';
 import '../../history/application/check_in_controller.dart';
 import '../../history/data/models/check_in_stats.dart';
 import '../../../shared/theme/theme_controller.dart';
@@ -20,6 +19,10 @@ import '../../../shared/providers/shared_providers.dart';
 import '../../../shared/widgets/three_circles_logo.dart';
 import 'package:go_router/go_router.dart';
 import '../../../shared/router/app_router.dart';
+import '../../circle/application/circle_overview_provider.dart';
+import '../../circle/data/models/circle_alert_summary.dart';
+import '../../circle/data/models/circle_member.dart';
+import '../../circle/data/models/circle_stats.dart';
 import '../../../shared/services/preferences_service.dart';
 
 const List<Color> _heroGradientColors = [
@@ -344,73 +347,145 @@ class _CircleModeView extends ConsumerWidget {
       await launchUrl(uri);
     } else {
       messenger.showSnackBar(
-        SnackBar(content: Text('Unable to open your dialer for $trimmed')),
+        const SnackBar(
+          content: Text('Unable to launch the dialer on this device.'),
+        ),
       );
     }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final contactsState = ref.watch(contactsControllerProvider);
-    final preferredId = ref.watch(preferredContactProvider);
-    final contacts = contactsState.contacts;
+    final overviewAsync = ref.watch(circleOverviewProvider);
 
-    final content = <Widget>[
-      _CircleModeHeader(memberCount: contacts.length),
-      const SizedBox(height: 16),
-    ];
-
-    if (contactsState.status == ContactsStatus.loading && contacts.isEmpty) {
-      content.add(
-        const Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
-            child: CircularProgressIndicator(),
-          ),
-        ),
-      );
-    } else if (contacts.isEmpty) {
-      content.add(const _EmptyCircleState());
-    } else {
-      for (var i = 0; i < contacts.length; i++) {
-        final contact = contacts[i];
-        final isPreferred = preferredId != null && preferredId == contact.id;
-        content.add(
-          _CircleMemberCard(
-            contact: contact,
-            isPreferred: isPreferred,
-            onCall: () => _callContact(context, contact.phone),
-          ),
-        );
-        if (i != contacts.length - 1) {
-          content.add(const SizedBox(height: 12));
-        }
-      }
+    Future<void> onRefresh() async {
+      await ref.read(contactsControllerProvider.notifier).refresh();
+      final _ = await ref.refresh(circleOverviewProvider.future);
     }
 
-    return RefreshIndicator(
-      onRefresh: () async {
-        await ref.read(contactsControllerProvider.notifier).refresh();
-      },
-      child: ListView(
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
+    return overviewAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => RefreshIndicator(
+        onRefresh: onRefresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+          children: [
+            _CircleModeHeader(
+              stats: const CircleStats(
+                totalMembers: 0,
+                needsAttention: 0,
+                awaitingSetup: 0,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _CircleErrorState(message: error.toString()),
+          ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        children: content,
       ),
+      data: (overview) {
+        final members = overview.members;
+        final needsAttention = members
+            .where(
+              (member) => member.status == CircleMemberStatus.needsAttention,
+            )
+            .toList();
+        final awaitingSetup = members
+            .where(
+              (member) => member.status == CircleMemberStatus.awaitingSetup,
+            )
+            .toList();
+        final checkedIn = members
+            .where((member) => member.status == CircleMemberStatus.checkedIn)
+            .toList();
+
+        final content = <Widget>[
+          _CircleModeHeader(stats: overview.stats),
+          const SizedBox(height: 16),
+        ];
+
+        if (members.isEmpty) {
+          content.add(const _EmptyCircleState());
+        } else {
+          void addSection({
+            required String title,
+            required IconData icon,
+            required Color color,
+            required List<CircleMember> sectionMembers,
+          }) {
+            if (sectionMembers.isEmpty) return;
+            content.add(
+              _CircleSectionHeader(title: title, icon: icon, color: color),
+            );
+            content.add(const SizedBox(height: 12));
+            for (var i = 0; i < sectionMembers.length; i++) {
+              final member = sectionMembers[i];
+              content.add(
+                _CircleMemberCard(
+                  member: member,
+                  onCall: member.phone == null
+                      ? null
+                      : () => _callContact(context, member.phone!),
+                ),
+              );
+              if (i != sectionMembers.length - 1) {
+                content.add(const SizedBox(height: 12));
+              }
+            }
+            content.add(const SizedBox(height: 20));
+          }
+
+          addSection(
+            title: 'Needs attention',
+            icon: LucideIcons.alertTriangle,
+            color: const Color(0xFFDC2626),
+            sectionMembers: needsAttention,
+          );
+          addSection(
+            title: 'Awaiting setup',
+            icon: LucideIcons.hourglass,
+            color: const Color(0xFFF59E0B),
+            sectionMembers: awaitingSetup,
+          );
+          addSection(
+            title: 'Checked in',
+            icon: LucideIcons.checkCircle2,
+            color: const Color(0xFF22C55E),
+            sectionMembers: checkedIn,
+          );
+        }
+
+        content.add(const SizedBox(height: 12));
+        content.add(_AlertsTimeline(alerts: overview.alerts));
+
+        return RefreshIndicator(
+          onRefresh: onRefresh,
+          child: ListView(
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+            children: content,
+          ),
+        );
+      },
     );
   }
 }
 
 class _CircleModeHeader extends StatelessWidget {
-  const _CircleModeHeader({required this.memberCount});
+  const _CircleModeHeader({required this.stats});
 
-  final int memberCount;
+  final CircleStats stats;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final memberCount = stats.totalMembers;
+    final attention = stats.needsAttention;
+    final description = memberCount == 0
+        ? 'Invite loved ones to stay connected and informed.'
+        : "You're checking in on $memberCount ${memberCount == 1 ? 'member' : 'members'}. Keep them close.";
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
@@ -452,18 +527,213 @@ class _CircleModeHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  memberCount == 0
-                      ? 'Invite loved ones to stay connected and informed.'
-                      : 'You\'re checking in on $memberCount ${memberCount == 1 ? 'member' : 'members'}. Keep them close.',
+                  description,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: Colors.white.withOpacity(0.75),
                   ),
                 ),
+                if (attention > 0) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.16),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '$attention need your attention',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CircleSectionHeader extends StatelessWidget {
+  const _CircleSectionHeader({
+    required this.title,
+    required this.icon,
+    required this.color,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withOpacity(0.15),
+          ),
+          padding: const EdgeInsets.all(10),
+          child: Icon(icon, color: color, size: 18),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          title,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CircleErrorState extends StatelessWidget {
+  const _CircleErrorState({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: theme.colorScheme.error.withOpacity(0.08),
+        border: Border.all(color: theme.colorScheme.error.withOpacity(0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.error_outline, color: theme.colorScheme.error),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AlertsTimeline extends StatelessWidget {
+  const _AlertsTimeline({required this.alerts});
+
+  final List<CircleAlertSummary> alerts;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (alerts.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceVariant.withOpacity(0.4),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Icon(LucideIcons.shieldCheck, color: theme.colorScheme.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'No recent alerts – everyone is safe right now.',
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant.withOpacity(0.35),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.shieldAlert, color: theme.colorScheme.error),
+              const SizedBox(width: 12),
+              Text(
+                'Recent alerts',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          for (var i = 0; i < alerts.length; i++) ...[
+            _AlertListTile(alert: alerts[i]),
+            if (i != alerts.length - 1)
+              Divider(color: theme.dividerColor.withOpacity(0.4)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AlertListTile extends StatelessWidget {
+  const _AlertListTile({required this.alert});
+
+  final CircleAlertSummary alert;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final subtitleParts = <String>[];
+    if (alert.locationText != null && alert.locationText!.isNotEmpty) {
+      subtitleParts.add(alert.locationText!);
+    }
+    subtitleParts.add(DateFormatting.relative(alert.createdAt));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          alert.senderName,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitleParts.join(' • '),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        if (alert.message != null && alert.message!.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            '“${alert.message}”',
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -515,20 +785,15 @@ class _EmptyCircleState extends StatelessWidget {
 }
 
 class _CircleMemberCard extends StatelessWidget {
-  const _CircleMemberCard({
-    required this.contact,
-    required this.isPreferred,
-    required this.onCall,
-  });
+  const _CircleMemberCard({required this.member, required this.onCall});
 
-  final Contact contact;
-  final bool isPreferred;
-  final VoidCallback onCall;
+  final CircleMember member;
+  final VoidCallback? onCall;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final trimmedName = contact.name.trim();
+    final trimmedName = member.displayName.trim();
     final initials = trimmedName.isEmpty ? '?' : trimmedName[0].toUpperCase();
     return Container(
       decoration: BoxDecoration(
@@ -574,14 +839,14 @@ class _CircleMemberCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          trimmedName.isEmpty ? 'Unnamed contact' : trimmedName,
+                          trimmedName.isEmpty ? 'Unnamed member' : trimmedName,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),
                         ),
                       ),
-                      if (isPreferred)
+                      if (member.isPreferred)
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
@@ -614,7 +879,7 @@ class _CircleMemberCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    contact.phone,
+                    member.phone ?? 'No phone number on file',
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: Colors.white.withOpacity(0.9),
                       letterSpacing: 0.1,
@@ -622,7 +887,9 @@ class _CircleMemberCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Added ${DateFormatting.relative(contact.createdAt)}',
+                    member.lastCheckInAt == null
+                        ? 'No recent check-ins'
+                        : 'Checked in ${DateFormatting.relative(member.lastCheckInAt!)}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: Colors.white70,
                     ),
