@@ -33,6 +33,7 @@ class AppDatabase {
         'password': 'Password123!',
         'created_at': now.subtract(const Duration(days: 60)).toIso8601String(),
         'updated_at': now.subtract(const Duration(days: 2)).toIso8601String(),
+        'circle_id': 'circle-1',
       })
       ..add({
         'id': 2,
@@ -45,6 +46,7 @@ class AppDatabase {
         'password': 'Caregiver123!',
         'created_at': now.subtract(const Duration(days: 45)).toIso8601String(),
         'updated_at': now.subtract(const Duration(days: 1)).toIso8601String(),
+        'circle_id': 'circle-2',
       });
   }
 
@@ -59,6 +61,7 @@ class AppDatabase {
     required DateTime createdAt,
     required DateTime updatedAt,
     String? password,
+    String? circleId,
   }) async {
     await init();
     final normalizedEmail = email.trim().toLowerCase();
@@ -74,10 +77,18 @@ class AppDatabase {
       'location': location,
       'date_of_birth': dateOfBirth?.toIso8601String(),
       'user_type': userType,
-      'password': password ??
-          (existingIndex >= 0 ? _members[existingIndex]['password'] as String? ?? '' : ''),
+      'password':
+          password ??
+          (existingIndex >= 0
+              ? _members[existingIndex]['password'] as String? ?? ''
+              : ''),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'circle_id':
+          circleId ??
+          (existingIndex >= 0
+              ? _members[existingIndex]['circle_id'] as String?
+              : null),
     };
 
     if (existingIndex >= 0) {

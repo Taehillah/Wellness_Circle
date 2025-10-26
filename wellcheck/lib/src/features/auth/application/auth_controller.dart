@@ -38,10 +38,8 @@ class AuthState {
     );
   }
 
-  factory AuthState.initial() => const AuthState(
-        session: null,
-        status: AuthStatus.idle,
-      );
+  factory AuthState.initial() =>
+      const AuthState(session: null, status: AuthStatus.idle);
 }
 
 enum AuthStatus {
@@ -143,14 +141,13 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
-  Future<void> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> login({required String email, required String password}) async {
     state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
     try {
-      final AuthResponse response =
-          await _repository.login(email: email, password: password);
+      final AuthResponse response = await _repository.login(
+        email: email,
+        password: password,
+      );
       final session = AuthSession(token: response.token, user: response.user);
       // Persist to local database for control centre records.
       final db = ref.read(appDatabaseProvider);
@@ -164,12 +161,16 @@ class AuthController extends Notifier<AuthState> {
         userType: session.user.userType,
         createdAt: session.user.createdAt,
         updatedAt: session.user.updatedAt,
+        circleId: session.user.circleId,
       );
       await _persistSession(session);
       _setSession(session);
       state = state.copyWith(status: AuthStatus.authenticated);
     } on HttpRequestException catch (error) {
-      state = state.copyWith(status: AuthStatus.error, errorMessage: error.message);
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: error.message,
+      );
       rethrow;
     }
   }
@@ -207,12 +208,16 @@ class AuthController extends Notifier<AuthState> {
         userType: session.user.userType,
         createdAt: session.user.createdAt,
         updatedAt: session.user.updatedAt,
+        circleId: session.user.circleId,
       );
       await _persistSession(session);
       _setSession(session);
       state = state.copyWith(status: AuthStatus.authenticated);
     } on HttpRequestException catch (error) {
-      state = state.copyWith(status: AuthStatus.error, errorMessage: error.message);
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: error.message,
+      );
       rethrow;
     }
   }
@@ -226,10 +231,16 @@ class AuthController extends Notifier<AuthState> {
       await _repository.resetPassword(email: email, newPassword: newPassword);
       state = state.copyWith(status: AuthStatus.idle);
     } on HttpRequestException catch (error) {
-      state = state.copyWith(status: AuthStatus.error, errorMessage: error.message);
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: error.message,
+      );
       rethrow;
     } catch (error) {
-      state = state.copyWith(status: AuthStatus.error, errorMessage: error.toString());
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: error.toString(),
+      );
       rethrow;
     }
   }

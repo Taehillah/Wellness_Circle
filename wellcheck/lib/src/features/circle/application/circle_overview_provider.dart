@@ -9,6 +9,10 @@ final currentCircleIdProvider = Provider<String>((ref) {
   if (session == null) {
     return 'circle-demo';
   }
+  final userCircleId = session.user.circleId;
+  if (userCircleId != null && userCircleId.trim().isNotEmpty) {
+    return userCircleId.trim();
+  }
   return 'circle-${session.user.id}';
 });
 

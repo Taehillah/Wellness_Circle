@@ -110,8 +110,9 @@ class AuthRepository {
       );
 
       final now = DateTime.now();
+      final legacyId = _stableIdFromEmail(normalizedEmail);
       final user = AuthUser(
-        id: _stableIdFromEmail(normalizedEmail),
+        id: legacyId,
         name: displayName,
         email: normalizedEmail,
         role: 'user',
@@ -120,6 +121,7 @@ class AuthRepository {
         userType: userType,
         createdAt: now,
         updatedAt: now,
+        circleId: 'circle-$legacyId',
       );
 
       await _persistLocalProfile(user, firebaseUser.phoneNumber);
@@ -203,12 +205,24 @@ class AuthRepository {
         userType: 'Pensioner',
       );
     } else {
-      await docRef.update({
+      final data = snapshot.data();
+      final updates = <String, dynamic>{
         'lastSignInAt': FieldValue.serverTimestamp(),
         'lastSignInAtLocal':
             (firebaseUser.metadata.lastSignInTime ?? DateTime.now())
                 .toIso8601String(),
-      });
+      };
+      final existingEmail = (data?['email'] as String?) ?? fallbackEmail;
+      final legacyId =
+          data?['legacyId'] as int? ?? _stableIdFromEmail(existingEmail);
+      if (data == null || data['legacyId'] == null) {
+        updates['legacyId'] = legacyId;
+      }
+      final currentCircleId = (data?['circleId'] as String?) ?? '';
+      if (currentCircleId.isEmpty) {
+        updates['circleId'] = 'circle-$legacyId';
+      }
+      await docRef.set(updates, SetOptions(merge: true));
     }
   }
 
@@ -221,13 +235,15 @@ class AuthRepository {
     DateTime? dateOfBirth,
   }) async {
     final now = DateTime.now();
+    final legacyId = _stableIdFromEmail(email);
     await _usersCollection.doc(uid).set({
       'email': email.toLowerCase(),
       'name': displayName?.trim().isNotEmpty == true
           ? displayName!.trim()
           : email.split('@').first,
       'role': 'user',
-      'legacyId': _stableIdFromEmail(email),
+      'legacyId': legacyId,
+      'circleId': 'circle-$legacyId',
       'userType': userType ?? 'Pensioner',
       'location': location?.trim(),
       'dateOfBirth': dateOfBirth?.toIso8601String(),
@@ -250,6 +266,7 @@ class AuthRepository {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       password: '',
+      circleId: user.circleId,
     );
   }
 
@@ -268,6 +285,7 @@ class AuthRepository {
     final updatedAtRaw =
         data['lastSignInAtLocal'] as String? ??
         data['lastSignInAt']?.toString();
+    final circleId = (data['circleId'] as String?) ?? 'circle-$legacyId';
     return AuthUser(
       id: legacyId,
       name: name?.isNotEmpty == true
@@ -286,6 +304,7 @@ class AuthRepository {
       updatedAt: updatedAtRaw == null
           ? DateTime.now()
           : DateTime.tryParse(updatedAtRaw) ?? DateTime.now(),
+      circleId: circleId,
     );
   }
 
@@ -300,6 +319,7 @@ class AuthRepository {
     final updatedAt =
         DateTime.tryParse(record['updated_at'] as String? ?? '') ??
         DateTime.now();
+    final circleId = record['circle_id'] as String? ?? 'circle-${record['id']}';
     return AuthUser(
       id: record['id'] as int,
       name: record['name'] as String,
@@ -312,6 +332,7 @@ class AuthRepository {
       userType: userType,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      circleId: circleId,
     );
   }
 
@@ -334,9 +355,10 @@ class AuthRepository {
               .join(' ')
               .trim();
     final defaultDob = DateTime(timestamp.year - 40, 1, 1);
+    final legacyId = _stableIdFromEmail(email);
 
     return AuthUser(
-      id: _stableIdFromEmail(email),
+      id: legacyId,
       name: friendlyName.isEmpty ? 'Guest User' : friendlyName,
       email: email,
       role: 'user',
@@ -345,6 +367,7 @@ class AuthRepository {
       userType: 'Pensioner',
       createdAt: timestamp,
       updatedAt: timestamp,
+      circleId: 'circle-$legacyId',
     );
   }
 

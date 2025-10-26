@@ -238,7 +238,9 @@ class EmergencyController extends Notifier<EmergencyState> {
   }) async {
     try {
       final firestore = FirebaseFirestore.instance;
-      final circleId = 'circle-${session.user.id}';
+      final circleId = (session.user.circleId?.trim().isNotEmpty ?? false)
+          ? session.user.circleId!.trim()
+          : 'circle-${session.user.id}';
       final circleDoc = firestore.collection('circles').doc(circleId);
       final alertsCollection = circleDoc.collection('alerts');
 
