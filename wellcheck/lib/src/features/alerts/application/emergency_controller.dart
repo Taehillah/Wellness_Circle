@@ -37,33 +37,43 @@ class EmergencyState {
       permissionStatus == GeoPermissionStatus.denied ||
       permissionStatus == GeoPermissionStatus.deniedForever;
 
+  static const Object _sentinel = Object();
+
   EmergencyState copyWith({
     GeoPermissionStatus? permissionStatus,
     bool? isLocating,
     bool? isSending,
-    HelpLocation? location,
-    HelpRequest? lastRequest,
-    String? statusMessage,
-    String? errorMessage,
+    Object? location = _sentinel,
+    Object? lastRequest = _sentinel,
+    Object? statusMessage = _sentinel,
+    Object? errorMessage = _sentinel,
   }) {
     return EmergencyState(
       permissionStatus: permissionStatus ?? this.permissionStatus,
       isLocating: isLocating ?? this.isLocating,
       isSending: isSending ?? this.isSending,
-      location: location ?? this.location,
-      lastRequest: lastRequest ?? this.lastRequest,
-      statusMessage: statusMessage,
-      errorMessage: errorMessage,
+      location: identical(location, _sentinel)
+          ? this.location
+          : location as HelpLocation?,
+      lastRequest: identical(lastRequest, _sentinel)
+          ? this.lastRequest
+          : lastRequest as HelpRequest?,
+      statusMessage: identical(statusMessage, _sentinel)
+          ? this.statusMessage
+          : statusMessage as String?,
+      errorMessage: identical(errorMessage, _sentinel)
+          ? this.errorMessage
+          : errorMessage as String?,
     );
   }
 
   factory EmergencyState.initial() => const EmergencyState(
-        permissionStatus: GeoPermissionStatus.unknown,
-        isLocating: false,
-        isSending: false,
-        location: null,
-        lastRequest: null,
-      );
+    permissionStatus: GeoPermissionStatus.unknown,
+    isLocating: false,
+    isSending: false,
+    location: null,
+    lastRequest: null,
+  );
 }
 
 class EmergencyController extends Notifier<EmergencyState> {
@@ -113,6 +123,7 @@ class EmergencyController extends Notifier<EmergencyState> {
           permissionStatus: permission,
           isLocating: false,
           errorMessage: 'Location services are disabled. Please enable them.',
+          location: null,
         );
         return;
       }
@@ -123,15 +134,23 @@ class EmergencyController extends Notifier<EmergencyState> {
           isLocating: false,
           errorMessage:
               'Location permission denied. You can still send a request without location.',
+          location: null,
         );
         return;
       }
       final position = await _geolocation.currentPosition();
+      final resolvedAddress = await _geolocation.reverseGeocode(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+      final coordinateLabel =
+          'Lat ${position.latitude.toStringAsFixed(4)}, Lng ${position.longitude.toStringAsFixed(4)}';
       final location = HelpLocation(
         lat: position.latitude,
         lng: position.longitude,
-        address:
-            'Lat ${position.latitude.toStringAsFixed(4)}, Lng ${position.longitude.toStringAsFixed(4)}',
+        address: (resolvedAddress == null || resolvedAddress.isEmpty)
+            ? coordinateLabel
+            : resolvedAddress,
       );
       state = state.copyWith(
         permissionStatus: permission,
@@ -144,13 +163,12 @@ class EmergencyController extends Notifier<EmergencyState> {
       state = state.copyWith(
         isLocating: false,
         errorMessage: 'Unable to fetch location: $error',
+        location: null,
       );
     }
   }
 
-  Future<void> sendHelp({
-    String? message,
-  }) async {
+  Future<void> sendHelp({String? message}) async {
     final session = _session;
     if (session == null) {
       state = state.copyWith(
@@ -187,20 +205,16 @@ class EmergencyController extends Notifier<EmergencyState> {
         statusMessage: 'Help request sent. Our team will reach out.',
       );
     } catch (error) {
-      state = state.copyWith(
-        isSending: false,
-        errorMessage: error.toString(),
-      );
+      state = state.copyWith(isSending: false, errorMessage: error.toString());
     }
   }
 
   void clearStatus() {
-    state = state.copyWith(
-      statusMessage: null,
-      errorMessage: null,
-    );
+    state = state.copyWith(statusMessage: null, errorMessage: null);
   }
 }
 
 final emergencyControllerProvider =
-    NotifierProvider<EmergencyController, EmergencyState>(EmergencyController.new);
+    NotifierProvider<EmergencyController, EmergencyState>(
+      EmergencyController.new,
+    );

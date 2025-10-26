@@ -1,4 +1,5 @@
 import 'package:riverpod/riverpod.dart';
+import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:geolocator/geolocator.dart';
 
 enum GeoPermissionStatus {
@@ -53,7 +54,34 @@ class GeolocationService {
       locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
     );
   }
+
+  Future<String?> reverseGeocode({
+    required double latitude,
+    required double longitude,
+  }) async {
+    try {
+      final placemarks = await geocoding.placemarkFromCoordinates(
+        latitude,
+        longitude,
+      );
+      if (placemarks.isEmpty) return null;
+      final place = placemarks.first;
+      final parts = <String>[
+        place.street ?? '',
+        place.subLocality ?? '',
+        place.locality ?? '',
+        place.administrativeArea ?? '',
+        place.postalCode ?? '',
+        place.country ?? '',
+      ].map((part) => part.trim()).where((part) => part.isNotEmpty).toList();
+      if (parts.isEmpty) return null;
+      return parts.toSet().join(', ');
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
-final geolocationServiceProvider =
-    Provider<GeolocationService>((ref) => GeolocationService());
+final geolocationServiceProvider = Provider<GeolocationService>(
+  (ref) => GeolocationService(),
+);

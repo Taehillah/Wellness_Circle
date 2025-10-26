@@ -74,38 +74,45 @@ class HomeView extends ConsumerWidget {
           ),
           actions: [
             _StreakBadge(streak: checkInStats.currentStreak),
-            Consumer(builder: (context, ref, _) {
-              final mode = ref.watch(themeModeProvider);
-              final isDark = mode == ThemeMode.dark;
-              return IconButton(
-                tooltip: isDark ? 'Switch to light theme' : 'Switch to dark theme',
-                icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-                onPressed: () => ref.read(themeModeProvider.notifier).toggleLightDark(),
-              );
-            }),
-            Consumer(builder: (context, ref, _) {
-              final contactsState = ref.watch(contactsControllerProvider);
-              final totalMembers = contactsState.contacts.length;
-              return IconButton(
-                tooltip: 'Circle updates',
-                onPressed: () {
-                  final controller = DefaultTabController.of(context);
-                  controller.animateTo(1);
-                },
-                icon: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(LucideIcons.inbox),
-                    if (totalMembers > 0)
-                      Positioned(
-                        right: -4,
-                        top: -4,
-                        child: _CountBadge(count: totalMembers),
-                      ),
-                  ],
-                ),
-              );
-            }),
+            Consumer(
+              builder: (context, ref, _) {
+                final mode = ref.watch(themeModeProvider);
+                final isDark = mode == ThemeMode.dark;
+                return IconButton(
+                  tooltip: isDark
+                      ? 'Switch to light theme'
+                      : 'Switch to dark theme',
+                  icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+                  onPressed: () =>
+                      ref.read(themeModeProvider.notifier).toggleLightDark(),
+                );
+              },
+            ),
+            Consumer(
+              builder: (context, ref, _) {
+                final contactsState = ref.watch(contactsControllerProvider);
+                final totalMembers = contactsState.contacts.length;
+                return IconButton(
+                  tooltip: 'Circle updates',
+                  onPressed: () {
+                    final controller = DefaultTabController.of(context);
+                    controller.animateTo(1);
+                  },
+                  icon: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(LucideIcons.mail),
+                      if (totalMembers > 0)
+                        Positioned(
+                          right: -4,
+                          top: -4,
+                          child: _CountBadge(count: totalMembers),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
             IconButton(
               tooltip: 'Settings',
               icon: const Icon(Icons.settings_outlined),
@@ -148,10 +155,7 @@ class _HomeModeTabBar extends StatelessWidget {
           indicator: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             gradient: const LinearGradient(
-              colors: [
-                Color(0xFF2563EB),
-                Color(0xFF1D4ED8),
-              ],
+              colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -160,14 +164,17 @@ class _HomeModeTabBar extends StatelessWidget {
             if (states.contains(WidgetState.pressed)) {
               return baseBlue.withOpacity(0.2);
             }
-            if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) {
+            if (states.contains(WidgetState.hovered) ||
+                states.contains(WidgetState.focused)) {
               return baseBlue.withOpacity(0.1);
             }
             return Colors.transparent;
           }),
           labelColor: Colors.white,
           unselectedLabelColor: unselected,
-          labelStyle: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+          labelStyle: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
           tabs: const [
             Tab(text: 'Self'),
             Tab(text: 'Circle'),
@@ -200,11 +207,7 @@ class _StreakBadge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              LucideIcons.flame,
-              size: 16,
-              color: baseBlue,
-            ),
+            Icon(LucideIcons.flame, size: 16, color: baseBlue),
             const SizedBox(width: 6),
             Text(
               label,
@@ -269,10 +272,7 @@ class _SelfModeView extends ConsumerWidget {
               children: [
                 _GreetingCard(user: user, stats: stats, greeting: greeting),
                 const SizedBox(height: 18),
-                SizedBox(
-                  height: 140,
-                  child: _CountdownPanel(stats: stats),
-                ),
+                SizedBox(height: 140, child: _CountdownPanel(stats: stats)),
                 const SizedBox(height: 18),
                 _ActionButtons(isLoading: isLoading, ref: ref),
                 const SizedBox(height: 18),
@@ -299,10 +299,7 @@ class _SelfModeView extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      flex: 3,
-                      child: _CountdownPanel(stats: stats),
-                    ),
+                    Expanded(flex: 3, child: _CountdownPanel(stats: stats)),
                     SizedBox(height: gap),
                     ConstrainedBox(
                       constraints: BoxConstraints(
@@ -336,7 +333,9 @@ class _CircleModeView extends ConsumerWidget {
     final trimmed = phone.trim();
     if (trimmed.isEmpty) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('This member has no phone number listed.')),
+        const SnackBar(
+          content: Text('This member has no phone number listed.'),
+        ),
       );
       return;
     }
@@ -394,7 +393,9 @@ class _CircleModeView extends ConsumerWidget {
         await ref.read(contactsControllerProvider.notifier).refresh();
       },
       child: ListView(
-        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         children: content,
       ),
@@ -435,11 +436,7 @@ class _CircleModeHeader extends StatelessWidget {
               color: Colors.white.withOpacity(0.18),
             ),
             padding: const EdgeInsets.all(14),
-            child: Icon(
-              LucideIcons.users,
-              color: Colors.white,
-              size: 26,
-            ),
+            child: Icon(LucideIcons.users, color: Colors.white, size: 26),
           ),
           const SizedBox(width: 18),
           Expanded(
@@ -590,11 +587,18 @@ class _CircleMemberCard extends StatelessWidget {
                             color: Colors.white.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(999),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(LucideIcons.star, size: 14, color: Colors.white),
+                              const Icon(
+                                LucideIcons.star,
+                                size: 14,
+                                color: Colors.white,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 'Preferred',
@@ -629,8 +633,13 @@ class _CircleMemberCard extends StatelessWidget {
             const SizedBox(width: 12),
             FilledButton.icon(
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 backgroundColor: Colors.white,
                 foregroundColor: const Color(0xFF2563EB),
               ),
@@ -656,7 +665,8 @@ class _CountdownPanel extends ConsumerStatefulWidget {
 
 class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
   // Use ref.read here; watching in initState triggers inherited access errors.
-  Duration get _currentDuration => Duration(hours: ref.read(timerHoursProvider));
+  Duration get _currentDuration =>
+      Duration(hours: ref.read(timerHoursProvider));
 
   Duration _remaining = Duration.zero;
   Timer? _timer;
@@ -670,10 +680,14 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(checkInLockProvider.notifier).unlock();
-      unawaited(ref.read(notificationsServiceProvider).startMinuteReminder(
-        title: 'Time to check in',
-        body: 'Tap the app and confirm: I am doing Great!',
-      ));
+      unawaited(
+        ref
+            .read(notificationsServiceProvider)
+            .startMinuteReminder(
+              title: 'Time to check in',
+              body: 'Tap the app and confirm: I am doing Great!',
+            ),
+      );
     });
   }
 
@@ -683,11 +697,17 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
     _prefs = ref.read(preferencesServiceProvider);
     _bootstrapFromPersistedEndTime();
     // Listen for external restart requests (e.g., when user taps "I am up").
-    _restartSub = ref.listenManual<int>(countdownRestartProvider, (previous, next) {
+    _restartSub = ref.listenManual<int>(countdownRestartProvider, (
+      previous,
+      next,
+    ) {
       _resetTimer();
     });
     // Restart timer when settings change the hours value.
-    _timerHoursSub = ref.listenManual<int>(timerHoursProvider, (previous, next) {
+    _timerHoursSub = ref.listenManual<int>(timerHoursProvider, (
+      previous,
+      next,
+    ) {
       _resetTimer();
     });
   }
@@ -714,7 +734,9 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
     final end = now.add(_currentDuration);
     _endAt = end;
     // Persist target end time so countdown continues across background/terminations.
-    unawaited(_prefs.setString(_kEndAtKey, end.millisecondsSinceEpoch.toString()));
+    unawaited(
+      _prefs.setString(_kEndAtKey, end.millisecondsSinceEpoch.toString()),
+    );
     _remaining = end.difference(now);
     _alertShown = false;
     _cancelTimer();
@@ -731,7 +753,9 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
       if (end == null) {
         end = now.add(_currentDuration);
         _endAt = end;
-        unawaited(_prefs.setString(_kEndAtKey, end.millisecondsSinceEpoch.toString()));
+        unawaited(
+          _prefs.setString(_kEndAtKey, end.millisecondsSinceEpoch.toString()),
+        );
       }
       _remaining = end.difference(now);
       if (_remaining <= const Duration(seconds: 1)) {
@@ -743,22 +767,33 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
           // Prompt the user to press the green primary button below.
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Time to check in! Press the rich green 'I am up' button."),
+              content: Text(
+                "Time to check in! Press the rich green 'I am up' button.",
+              ),
             ),
           );
         }
         // Unlock the check-in button when timer completes.
         ref.read(checkInLockProvider.notifier).unlock();
         // Start minute-by-minute reminder notifications until the user checks in.
-        unawaited(ref.read(notificationsServiceProvider).startMinuteReminder(
-          title: 'Time to check in',
-          body: 'Tap the app and confirm: I am doing Great!',
-        ));
+        unawaited(
+          ref
+              .read(notificationsServiceProvider)
+              .startMinuteReminder(
+                title: 'Time to check in',
+                body: 'Tap the app and confirm: I am doing Great!',
+              ),
+        );
         // Auto-restart countdown for the next cycle using current settings.
         setState(() {
           final nextEnd = now.add(_currentDuration);
           _endAt = nextEnd;
-          unawaited(_prefs.setString(_kEndAtKey, nextEnd.millisecondsSinceEpoch.toString()));
+          unawaited(
+            _prefs.setString(
+              _kEndAtKey,
+              nextEnd.millisecondsSinceEpoch.toString(),
+            ),
+          );
           _remaining = nextEnd.difference(now);
           _alertShown = false;
         });
@@ -792,7 +827,9 @@ class _CountdownPanelState extends ConsumerState<_CountdownPanel> {
           end = end.add(Duration(seconds: cycles * spanSec));
         }
         _endAt = end;
-        unawaited(_prefs.setString(_kEndAtKey, end.millisecondsSinceEpoch.toString()));
+        unawaited(
+          _prefs.setString(_kEndAtKey, end.millisecondsSinceEpoch.toString()),
+        );
         _remaining = end.difference(now);
         _alertShown = false;
         _cancelTimer();
@@ -922,9 +959,7 @@ class _GreetingCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             'Keep up the great work—your wellbeing matters daily.',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: Colors.white70,
-            ),
+            style: theme.textTheme.bodyLarge?.copyWith(color: Colors.white70),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -934,7 +969,8 @@ class _GreetingCard extends StatelessWidget {
               if (stats.lastCheckIn != null)
                 _Chip(
                   icon: LucideIcons.clock3,
-                  label: 'Last: ${DateFormatting.relative(stats.lastCheckIn!.timestamp)}',
+                  label:
+                      'Last: ${DateFormatting.relative(stats.lastCheckIn!.timestamp)}',
                 ),
             ],
           ),
@@ -963,10 +999,7 @@ class _Chip extends StatelessWidget {
         children: [
           Icon(icon, color: Colors.white, size: 18),
           const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white),
-          ),
+          Text(label, style: const TextStyle(color: Colors.white)),
         ],
       ),
     );
@@ -974,10 +1007,7 @@ class _Chip extends StatelessWidget {
 }
 
 class _ActionButtons extends StatelessWidget {
-  const _ActionButtons({
-    required this.isLoading,
-    required this.ref,
-  });
+  const _ActionButtons({required this.isLoading, required this.ref});
 
   final bool isLoading;
   final WidgetRef ref;
@@ -1007,16 +1037,26 @@ class _ActionButtons extends StatelessWidget {
                   onTap: disabled
                       ? null
                       : () async {
-                          await ref.read(checkInControllerProvider.notifier).recordCheckIn();
+                          await ref
+                              .read(checkInControllerProvider.notifier)
+                              .recordCheckIn();
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Great job! Your check-in was saved.')),
+                              const SnackBar(
+                                content: Text(
+                                  'Great job! Your check-in was saved.',
+                                ),
+                              ),
                             );
                           }
                           ref.read(checkInLockProvider.notifier).lock();
                           ref.read(countdownRestartProvider.notifier).bump();
                           // Stop reminder notifications upon check-in.
-                          unawaited(ref.read(notificationsServiceProvider).cancelReminders());
+                          unawaited(
+                            ref
+                                .read(notificationsServiceProvider)
+                                .cancelReminders(),
+                          );
                         },
                   borderRadius: BorderRadius.circular(999),
                   child: Container(
@@ -1131,13 +1171,15 @@ class _StatsGrid extends ConsumerWidget {
     final preferredId = ref.watch(preferredContactProvider);
     final primary = hasContact
         ? (preferredId == null
-            ? contactsState.contacts.first
-            : (contactsState.contacts.firstWhere(
-                (c) => c.id == preferredId,
-                orElse: () => contactsState.contacts.first,
-              )))
+              ? contactsState.contacts.first
+              : (contactsState.contacts.firstWhere(
+                  (c) => c.id == preferredId,
+                  orElse: () => contactsState.contacts.first,
+                )))
         : null;
-    final cardLabel = hasContact ? 'Call ${primary!.name}' : 'Call a family member';
+    final cardLabel = hasContact
+        ? 'Call ${primary!.name}'
+        : 'Call a family member';
     final cardValue = hasContact ? primary!.phone : contactsCount.toString();
 
     final buttonLabel = hasContact ? 'Call ${primary!.name}' : cardLabel;
