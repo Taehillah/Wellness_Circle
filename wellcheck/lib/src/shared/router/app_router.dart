@@ -6,6 +6,7 @@ import '../../features/auth/application/auth_controller.dart';
 import '../../features/auth/presentation/login_view.dart';
 import '../../features/auth/presentation/register_view.dart';
 import '../../features/auth/presentation/splash_view.dart';
+import '../../features/auth/presentation/forgot_password_view.dart';
 import '../../features/contacts/presentation/contacts_view.dart';
 import '../../features/dashboard/presentation/dashboard_view.dart';
 import '../../features/history/presentation/history_view.dart';
@@ -16,6 +17,7 @@ enum AppRoute {
   splash('/splash'),
   login('/auth/login'),
   register('/auth/register'),
+  forgotPassword('/auth/forgot'),
   home('/home'),
   contacts('/contacts'),
   history('/history'),
@@ -51,6 +53,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RegisterView(),
       ),
       GoRoute(
+        path: AppRoute.forgotPassword.path,
+        name: AppRoute.forgotPassword.name,
+        builder: (context, state) => const ForgotPasswordView(),
+      ),
+      GoRoute(
         path: AppRoute.home.path,
         name: AppRoute.home.name,
         builder: (context, state) => const HomeView(),
@@ -78,7 +85,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
     redirect: (context, state) {
       final atAuthRoute = state.matchedLocation == AppRoute.login.path ||
-          state.matchedLocation == AppRoute.register.path;
+          state.matchedLocation == AppRoute.register.path ||
+          state.matchedLocation == AppRoute.forgotPassword.path;
 
       // While restoring, allow current screen to render (login or splash) to avoid blank screens.
       if (status == AuthStatus.restoring) {

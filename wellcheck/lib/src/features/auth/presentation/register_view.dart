@@ -203,7 +203,7 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                         ),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
-                          value: _selectedUserType,
+                          initialValue: _selectedUserType,
                           decoration: const InputDecoration(
                             labelText: 'User type',
                             prefixIcon: Icon(Icons.badge_outlined),

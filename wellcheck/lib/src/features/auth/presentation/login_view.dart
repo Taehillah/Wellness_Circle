@@ -167,6 +167,17 @@ class _LoginViewState extends ConsumerState<LoginView> {
                           },
                         ),
                         const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => context.go(AppRoute.forgotPassword.path),
+                            child: const Text(
+                              'Forgot password?',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         if (authState.errorMessage != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 8),

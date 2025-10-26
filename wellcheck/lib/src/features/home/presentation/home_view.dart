@@ -90,7 +90,7 @@ class HomeView extends ConsumerWidget {
                 tooltip: 'Circle updates',
                 onPressed: () {
                   final controller = DefaultTabController.of(context);
-                  controller?.animateTo(1);
+                  controller.animateTo(1);
                 },
                 icon: Stack(
                   clipBehavior: Clip.none,
@@ -156,11 +156,11 @@ class _HomeModeTabBar extends StatelessWidget {
               end: Alignment.bottomRight,
             ),
           ),
-          overlayColor: MaterialStateProperty.resolveWith((states) {
-            if (states.contains(MaterialState.pressed)) {
+          overlayColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.pressed)) {
               return baseBlue.withOpacity(0.2);
             }
-            if (states.contains(MaterialState.hovered) || states.contains(MaterialState.focused)) {
+            if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) {
               return baseBlue.withOpacity(0.1);
             }
             return Colors.transparent;

@@ -1,108 +1,53 @@
-import 'dart:async';
-
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
-import 'package:sqflite/sqflite.dart';
+import 'dart:collection';
 
 class AppDatabase {
-  static const _dbName = 'wellcheck.db';
-  static const _dbVersion = 2;
+  AppDatabase._internal() {
+    _seedMockMembers();
+  }
 
-  Database? _db;
+  static final AppDatabase _instance = AppDatabase._internal();
+
+  factory AppDatabase() => _instance;
+
+  bool _initialized = false;
+
+  final List<Map<String, dynamic>> _members = <Map<String, dynamic>>[];
+  final List<Map<String, dynamic>> _helpRequests = <Map<String, dynamic>>[];
 
   Future<void> init() async {
-    if (_db != null) return;
-    final docs = await getApplicationDocumentsDirectory();
-    final dbPath = p.join(docs.path, _dbName);
-    _db = await openDatabase(
-      dbPath,
-      version: _dbVersion,
-      onCreate: (db, version) async {
-        await _createSchema(db);
-      },
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          await db.execute('ALTER TABLE members ADD COLUMN date_of_birth TEXT;');
-          await db.execute(
-            "ALTER TABLE members ADD COLUMN user_type TEXT NOT NULL DEFAULT 'Pensioner';",
-          );
-        }
-      },
-    );
+    if (_initialized) return;
+    _initialized = true;
   }
 
-  Future<void> _createSchema(Database db) async {
-    // Members
-    await db.execute('''
-      CREATE TABLE members (
-        id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        phone TEXT,
-        location TEXT,
-        date_of_birth TEXT,
-        user_type TEXT NOT NULL DEFAULT 'Pensioner',
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-    ''');
-    // Next of kin
-    await db.execute('''
-      CREATE TABLE next_of_kin (
-        id TEXT PRIMARY KEY,
-        member_id INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        relationship TEXT,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE CASCADE
-      );
-    ''');
-    // Security companies
-    await db.execute('''
-      CREATE TABLE security_companies (
-        id TEXT PRIMARY KEY,
-        member_id INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        area TEXT,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE CASCADE
-      );
-    ''');
-    // Doctors
-    await db.execute('''
-      CREATE TABLE doctors (
-        id TEXT PRIMARY KEY,
-        member_id INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        practice TEXT,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE CASCADE
-      );
-    ''');
-    // Help requests with GPS location
-    await db.execute('''
-      CREATE TABLE help_requests (
-        id TEXT PRIMARY KEY,
-        member_id INTEGER NOT NULL,
-        message TEXT,
-        lat REAL,
-        lng REAL,
-        address TEXT,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE CASCADE
-      );
-    ''');
-    // Indexes for scalability
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_help_requests_member ON help_requests(member_id);');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_help_requests_created ON help_requests(created_at);');
+  void _seedMockMembers() {
+    final now = DateTime.now();
+    _members
+      ..add({
+        'id': 1,
+        'name': 'Wellness Demo',
+        'email': 'demo@mockwellness.app',
+        'phone': '+155555501',
+        'location': 'Harbor City',
+        'date_of_birth': DateTime(now.year - 50, 4, 12).toIso8601String(),
+        'user_type': 'Pensioner',
+        'password': 'Password123!',
+        'created_at': now.subtract(const Duration(days: 60)).toIso8601String(),
+        'updated_at': now.subtract(const Duration(days: 2)).toIso8601String(),
+      })
+      ..add({
+        'id': 2,
+        'name': 'Amina Caregiver',
+        'email': 'caregiver@mockwellness.app',
+        'phone': '+155555502',
+        'location': 'Cedar Town',
+        'date_of_birth': DateTime(now.year - 38, 8, 22).toIso8601String(),
+        'user_type': 'Lady',
+        'password': 'Caregiver123!',
+        'created_at': now.subtract(const Duration(days: 45)).toIso8601String(),
+        'updated_at': now.subtract(const Duration(days: 1)).toIso8601String(),
+      });
   }
 
-  Database get _requireDb => _db!;
-
-  // Members
   Future<void> upsertMember({
     required int id,
     required String name,
@@ -113,27 +58,63 @@ class AppDatabase {
     required String userType,
     required DateTime createdAt,
     required DateTime updatedAt,
+    String? password,
   }) async {
     await init();
-    final db = _requireDb;
-    await db.insert(
-      'members',
-      {
-        'id': id,
-        'name': name,
-        'email': email,
-        'phone': phone,
-        'location': location,
-        'date_of_birth': dateOfBirth?.toIso8601String(),
-        'user_type': userType,
-        'created_at': createdAt.toIso8601String(),
-        'updated_at': updatedAt.toIso8601String(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
+    final normalizedEmail = email.trim().toLowerCase();
+    final existingIndex = _members.indexWhere(
+      (row) => (row['email'] as String).toLowerCase() == normalizedEmail,
     );
+
+    final data = {
+      'id': id,
+      'name': name,
+      'email': normalizedEmail,
+      'phone': phone,
+      'location': location,
+      'date_of_birth': dateOfBirth?.toIso8601String(),
+      'user_type': userType,
+      'password': password ??
+          (existingIndex >= 0 ? _members[existingIndex]['password'] as String? ?? '' : ''),
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+    };
+
+    if (existingIndex >= 0) {
+      _members[existingIndex] = data;
+    } else {
+      _members.add(data);
+    }
   }
 
-  // Help requests
+  Future<Map<String, dynamic>?> getMemberByEmail(String email) async {
+    await init();
+    final normalizedEmail = email.trim().toLowerCase();
+    final match = _members.firstWhere(
+      (row) => (row['email'] as String).toLowerCase() == normalizedEmail,
+      orElse: () => <String, dynamic>{},
+    );
+    if (match.isEmpty) return null;
+    return HashMap<String, dynamic>.from(match);
+  }
+
+  Future<bool> updateMemberPassword({
+    required String email,
+    required String newPassword,
+  }) async {
+    await init();
+    final normalizedEmail = email.trim().toLowerCase();
+    final index = _members.indexWhere(
+      (row) => (row['email'] as String).toLowerCase() == normalizedEmail,
+    );
+    if (index == -1) return false;
+    final updated = HashMap<String, dynamic>.from(_members[index]);
+    updated['password'] = newPassword;
+    updated['updated_at'] = DateTime.now().toIso8601String();
+    _members[index] = updated;
+    return true;
+  }
+
   Future<void> insertHelpRequest({
     required String id,
     required int memberId,
@@ -144,8 +125,7 @@ class AppDatabase {
     DateTime? createdAt,
   }) async {
     await init();
-    final db = _requireDb;
-    await db.insert('help_requests', {
+    _helpRequests.add({
       'id': id,
       'member_id': memberId,
       'message': message,

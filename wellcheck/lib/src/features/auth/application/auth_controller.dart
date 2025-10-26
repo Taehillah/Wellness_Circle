@@ -217,6 +217,23 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
+  Future<void> resetPassword({
+    required String email,
+    required String newPassword,
+  }) async {
+    state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
+    try {
+      await _repository.resetPassword(email: email, newPassword: newPassword);
+      state = state.copyWith(status: AuthStatus.idle);
+    } on HttpRequestException catch (error) {
+      state = state.copyWith(status: AuthStatus.error, errorMessage: error.message);
+      rethrow;
+    } catch (error) {
+      state = state.copyWith(status: AuthStatus.error, errorMessage: error.toString());
+      rethrow;
+    }
+  }
+
   Future<void> logout({bool remote = true}) async {
     try {
       state = state.copyWith(status: AuthStatus.loading);
