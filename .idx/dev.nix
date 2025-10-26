@@ -11,6 +11,7 @@
     # pkgs.python311Packages.pip
     # pkgs.nodejs_20
     # pkgs.nodePackages.nodemon
+    pkgs.google-cloud-sdk
   ];
 
   # Sets environment variables in the workspace
@@ -44,6 +45,7 @@
       onCreate = {
         # Example: install JS dependencies from NPM
         # npm-install = "npm install";
+        enable-cloud-messaging = "gcloud services enable cloudmessaging.googleapis.com";
       };
       # Runs when the workspace is (re)started
       onStart = {
