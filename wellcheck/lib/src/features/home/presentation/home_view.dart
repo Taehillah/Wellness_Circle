@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod/riverpod.dart' show StateProvider;
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -46,7 +45,15 @@ final countdownRestartProvider = NotifierProvider<_CountdownRestart, int>(
   _CountdownRestart.new,
 );
 
-final circleAlertsSeenProvider = StateProvider<int>((ref) => 0);
+class _CircleAlertsSeen extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void markAllSeen(int totalAlerts) => state = totalAlerts;
+}
+
+final circleAlertsSeenProvider =
+    NotifierProvider<_CircleAlertsSeen, int>(_CircleAlertsSeen.new);
 
 // Lock state for the "I am up" button. Locked immediately after pressing,
 // then unlocked when the countdown expires.
@@ -112,8 +119,9 @@ class HomeView extends ConsumerWidget {
                   tooltip: 'Circle updates',
                   onPressed: () {
                     if (alertsCount > 0) {
-                      ref.read(circleAlertsSeenProvider.notifier).state =
-                          alertsCount;
+                      ref
+                          .read(circleAlertsSeenProvider.notifier)
+                          .markAllSeen(alertsCount);
                       final controller = DefaultTabController.of(context);
                       controller.animateTo(1);
                     } else {

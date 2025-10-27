@@ -15,6 +15,20 @@ import 'notifications_service.dart';
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   debugPrint('Background message received: ${message.messageId}');
+  try {
+    final notification = message.notification;
+    final title = notification?.title ??
+        message.data['title'] as String? ??
+        'Wellness Circle';
+    final body = notification?.body ??
+        message.data['body'] as String? ??
+        message.data['message'] as String?;
+    final notifications = NotificationsService();
+    await notifications.showAlertNotification(title: title, body: body);
+  } catch (error, stackTrace) {
+    debugPrint('Failed to display background notification: $error');
+    debugPrint('$stackTrace');
+  }
 }
 
 class MessagingService {
