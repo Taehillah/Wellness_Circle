@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod/riverpod.dart' show StateProvider;
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -44,6 +45,8 @@ class _CountdownRestart extends Notifier<int> {
 final countdownRestartProvider = NotifierProvider<_CountdownRestart, int>(
   _CountdownRestart.new,
 );
+
+final circleAlertsSeenProvider = StateProvider<int>((ref) => 0);
 
 // Lock state for the "I am up" button. Locked immediately after pressing,
 // then unlocked when the countdown expires.
@@ -101,10 +104,16 @@ class HomeView extends ConsumerWidget {
                   loading: () => 0,
                   error: (_, __) => 0,
                 );
+                final seenCount = ref.watch(circleAlertsSeenProvider);
+                final unreadCount = alertsCount > seenCount
+                    ? alertsCount - seenCount
+                    : 0;
                 return IconButton(
                   tooltip: 'Circle updates',
                   onPressed: () {
                     if (alertsCount > 0) {
+                      ref.read(circleAlertsSeenProvider.notifier).state =
+                          alertsCount;
                       final controller = DefaultTabController.of(context);
                       controller.animateTo(1);
                     } else {
@@ -119,11 +128,11 @@ class HomeView extends ConsumerWidget {
                     clipBehavior: Clip.none,
                     children: [
                       const Icon(LucideIcons.mail),
-                      if (alertsCount > 0)
+                      if (unreadCount > 0)
                         Positioned(
                           right: -4,
                           top: -4,
-                          child: _CountBadge(count: alertsCount),
+                          child: _CountBadge(count: unreadCount),
                         ),
                     ],
                   ),
