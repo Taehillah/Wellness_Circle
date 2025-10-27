@@ -34,7 +34,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final status = authState.status;
 
   return GoRouter(
-    // Start at login to avoid getting stuck on splash.
     initialLocation: AppRoute.login.path,
     routes: [
       GoRoute(
@@ -84,13 +83,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (context, state) {
-      final atAuthRoute = state.matchedLocation == AppRoute.login.path ||
-          state.matchedLocation == AppRoute.register.path ||
-          state.matchedLocation == AppRoute.forgotPassword.path;
+      final location = state.uri.path;
+      final atAuthRoute = location == AppRoute.login.path ||
+          location == AppRoute.register.path ||
+          location == AppRoute.forgotPassword.path;
 
       // While restoring, allow current screen to render (login or splash) to avoid blank screens.
       if (status == AuthStatus.restoring) {
         return null;
+      }
+
+      if (location == '/' || location.isEmpty) {
+        return isAuthenticated ? AppRoute.home.path : AppRoute.login.path;
       }
 
       if (!isAuthenticated) {

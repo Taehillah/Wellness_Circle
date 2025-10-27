@@ -39,7 +39,7 @@ class AuthState {
   }
 
   factory AuthState.initial() =>
-      const AuthState(session: null, status: AuthStatus.idle);
+      const AuthState(session: null, status: AuthStatus.unauthenticated);
 }
 
 enum AuthStatus {
@@ -60,7 +60,6 @@ class AuthController extends Notifier<AuthState> {
   AuthState build() {
     _preferences = ref.read(preferencesServiceProvider);
     _repository = ref.read(authRepositoryProvider);
-    scheduleMicrotask(restoreSession);
     return AuthState.initial();
   }
 
