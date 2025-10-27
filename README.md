@@ -105,6 +105,44 @@ flutter run -d ios --dart-define=API_BASE_URL=http://localhost:4000
 flutter run -d macos --dart-define=API_BASE_URL=https://staging.yourdomain.com
 ```
 
+## Android Release APK
+Use these steps when you need a distributable APK (for example, to attach to a GitHub/GitLab release):
+
+1. **Create a signing key** (only once) so release builds are properly signed:
+   ```bash
+   keytool -genkey -v -keystore android/app/release-keystore.jks \
+     -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 -alias wellcheck
+   ```
+   Record the passwords in `android/key.properties` (start by copying `android/key.properties.example` and updating the values):
+   ```properties
+   storePassword=your-store-password
+   keyPassword=your-key-password
+   keyAlias=wellcheck
+   storeFile=release-keystore.jks
+   ```
+   Update `android/app/build.gradle.kts` so the `release` signing config reads the properties file and change `applicationId` from `com.example.wellcheck` to your production package name.
+
+2. **Fetch dependencies and clean** (recommended before a release build):
+   ```bash
+   cd wellcheck
+   flutter pub get
+   flutter clean
+   ```
+
+3. **Build the signed release APK**. Provide the backend host that devices should hit:
+   ```bash
+   flutter build apk --release \
+     --dart-define=API_BASE_URL=https://api.yourdomain.com
+   ```
+   The artifact is generated at `build/app/outputs/flutter-apk/app-release.apk`.
+
+4. **Verify the signature** (optional but recommended):
+   ```bash
+   apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk
+   ```
+
+5. **Publish** – create a new Git release and attach `app-release.apk`. Document the `API_BASE_URL` (and any other `--dart-define` values) you used so testers know which environment they are hitting.
+
 ## Tests
 Run the unit and widget suites:
 ```bash

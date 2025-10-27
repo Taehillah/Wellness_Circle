@@ -146,4 +146,11 @@ class AppDatabase {
       'created_at': (createdAt ?? DateTime.now()).toIso8601String(),
     });
   }
+
+  Future<void> removeMembersForCircle(String circleId) async {
+    await init();
+    _members.removeWhere(
+      (row) => (row['circle_id'] as String?)?.trim() == circleId.trim(),
+    );
+  }
 }

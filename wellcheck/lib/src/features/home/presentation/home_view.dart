@@ -734,6 +734,7 @@ class _AlertsTimeline extends StatelessWidget {
       );
     }
 
+    final previewAlerts = alerts.take(3).toList();
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -747,22 +748,42 @@ class _AlertsTimeline extends StatelessWidget {
             children: [
               Icon(LucideIcons.shieldAlert, color: theme.colorScheme.error),
               const SizedBox(width: 12),
-              Text(
-                'Recent alerts',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  'Recent alerts',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
+              if (alerts.length > previewAlerts.length)
+                TextButton(
+                  onPressed: () => _showAllAlerts(context),
+                  child: const Text('See all'),
+                ),
             ],
           ),
           const SizedBox(height: 12),
-          for (var i = 0; i < alerts.length; i++) ...[
-            _AlertListTile(alert: alerts[i]),
-            if (i != alerts.length - 1)
+          for (var i = 0; i < previewAlerts.length; i++) ...[
+            _AlertListTile(alert: previewAlerts[i]),
+            if (i != previewAlerts.length - 1)
               Divider(color: theme.dividerColor.withOpacity(0.4)),
           ],
         ],
       ),
+    );
+  }
+
+  Future<void> _showAllAlerts(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return FractionallySizedBox(
+          heightFactor: 0.8,
+          child: _AlertsListSheet(alerts: alerts),
+        );
+      },
     );
   }
 }
@@ -856,6 +877,45 @@ class _EmptyCircleState extends StatelessWidget {
   }
 }
 
+class _AlertsListSheet extends StatelessWidget {
+  const _AlertsListSheet({required this.alerts});
+
+  final List<CircleAlertSummary> alerts;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+            child: Text(
+              'Alert history',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              itemBuilder: (context, index) {
+                return _AlertListTile(alert: alerts[index]);
+              },
+              separatorBuilder: (context, index) =>
+                  Divider(color: theme.dividerColor.withOpacity(0.4)),
+              itemCount: alerts.length,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CircleMemberCard extends StatelessWidget {
   const _CircleMemberCard({required this.member, required this.onCall});
 
@@ -865,8 +925,8 @@ class _CircleMemberCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final trimmedName = member.displayName.trim();
-    final initials = trimmedName.isEmpty ? '?' : trimmedName[0].toUpperCase();
+    final displayName = member.maskedDisplayName.trim();
+    final initials = displayName.isEmpty ? '?' : displayName[0].toUpperCase();
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -911,7 +971,9 @@ class _CircleMemberCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          trimmedName.isEmpty ? 'Unnamed member' : trimmedName,
+                          displayName.isEmpty
+                              ? 'Unnamed member'
+                              : displayName,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: Colors.white,

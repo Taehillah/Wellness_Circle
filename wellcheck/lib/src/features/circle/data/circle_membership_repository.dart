@@ -30,17 +30,16 @@ class CircleMembershipRepository {
     }
     final docRef = _circlesCollection.doc(normalizedCircleId);
     final snapshot = await docRef.get();
-    if (snapshot.exists) {
-      return;
-    }
     final now = DateTime.now();
     final Map<String, dynamic> data = {
       'circleId': normalizedCircleId,
-      'createdAt': FieldValue.serverTimestamp(),
-      'createdAtLocal': now.toIso8601String(),
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedAtLocal': now.toIso8601String(),
     };
+    if (!snapshot.exists) {
+      data['createdAt'] = FieldValue.serverTimestamp();
+      data['createdAtLocal'] = now.toIso8601String();
+    }
     if (owner != null) {
       final uid = _auth.currentUser?.uid;
       if (uid != null) {
@@ -51,6 +50,24 @@ class CircleMembershipRepository {
       data['ownerEmail'] = owner.user.email;
     }
     await docRef.set(data, SetOptions(merge: true));
+
+    if (owner != null) {
+      await docRef
+          .collection('members')
+          .doc(owner.user.id.toString())
+          .set({
+        'displayName': _maskName(owner.user.name),
+        'role': 'survivor',
+        'status': 'checkedIn',
+        'email': owner.user.email,
+        'phone': owner.user.phone ?? _auth.currentUser?.phoneNumber,
+        'userType': owner.user.userType,
+        'shareActivity': true,
+        'visibility': 'owner',
+        'lastJoinedAt': FieldValue.serverTimestamp(),
+        'lastJoinedAtLocal': now.toIso8601String(),
+      }, SetOptions(merge: true));
+    }
   }
 
   Future<void> joinCircle({
@@ -100,15 +117,77 @@ class CircleMembershipRepository {
         .collection('members')
         .doc(session.user.id.toString())
         .set({
-          'displayName': session.user.name,
+          'displayName': _maskName(session.user.name),
           'role': role,
           'status': status,
           'email': session.user.email,
           'phone': session.user.phone ?? _auth.currentUser?.phoneNumber,
           'userType': session.user.userType,
+          'shareActivity': role == 'survivor',
+          'visibility': role == 'survivor' ? 'owner' : 'viewer',
           'lastJoinedAt': FieldValue.serverTimestamp(),
           'lastJoinedAtLocal': now.toIso8601String(),
         }, SetOptions(merge: true));
+
+    await _ensureOwnerMember(normalizedCircleId);
+  }
+
+  Future<void> removeAllMembers({
+    required AuthSession session,
+  }) async {
+    final circleId = session.user.circleId?.trim();
+    if (circleId == null || circleId.isEmpty) {
+      return;
+    }
+
+    final membersCollection =
+        _circlesCollection.doc(circleId).collection('members');
+    final snapshot = await membersCollection
+        .where('shareActivity', isEqualTo: true)
+        .get();
+
+    if (snapshot.docs.isEmpty) {
+      await _database.removeMembersForCircle(circleId);
+      return;
+    }
+
+    final batch = _firestore.batch();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+
+    await _database.removeMembersForCircle(circleId);
+  }
+
+  Future<void> _ensureOwnerMember(String circleId) async {
+    final docRef = _circlesCollection.doc(circleId);
+    final circleSnapshot = await docRef.get();
+    final data = circleSnapshot.data();
+    final ownerMemberId = data != null ? data['ownerMemberId'] : null;
+    final ownerName = data != null ? data['ownerName'] as String? : null;
+    final ownerEmail = data != null ? data['ownerEmail'] as String? : null;
+    if (ownerMemberId == null || ownerName == null || ownerEmail == null) {
+      return;
+    }
+    final memberDoc = await docRef
+        .collection('members')
+        .doc(ownerMemberId.toString())
+        .get();
+    if (memberDoc.exists) {
+      return;
+    }
+    final now = DateTime.now();
+    await docRef.collection('members').doc(ownerMemberId.toString()).set({
+      'displayName': _maskName(ownerName),
+      'role': 'survivor',
+      'status': 'checkedIn',
+      'email': ownerEmail,
+      'shareActivity': true,
+      'visibility': 'owner',
+      'lastJoinedAt': FieldValue.serverTimestamp(),
+      'lastJoinedAtLocal': now.toIso8601String(),
+    }, SetOptions(merge: true));
   }
 
   Future<String?> findCircleIdByEmail(String email) async {
@@ -160,3 +239,17 @@ final circleMembershipRepositoryProvider = Provider<CircleMembershipRepository>(
     return CircleMembershipRepository(firestore, auth, database);
   },
 );
+
+String _maskName(String name) {
+  final trimmed = name.trim();
+  if (trimmed.isEmpty) {
+    return 'Member';
+  }
+  final parts = trimmed.split(RegExp(r'\s+'));
+  if (parts.length == 1) {
+    return parts.first;
+  }
+  final firstName = parts.first;
+  final lastInitial = parts.last.isEmpty ? '' : parts.last[0].toUpperCase();
+  return lastInitial.isEmpty ? firstName : '$firstName $lastInitial.';
+}

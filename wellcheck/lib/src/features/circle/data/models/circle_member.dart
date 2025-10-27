@@ -17,6 +17,7 @@ class CircleMember {
     this.isManual = false,
     this.lastCheckInAt,
     this.lastAlertAt,
+    this.sharesActivity = true,
   });
 
   final String id;
@@ -30,6 +31,7 @@ class CircleMember {
   final bool isManual;
   final DateTime? lastCheckInAt;
   final DateTime? lastAlertAt;
+  final bool sharesActivity;
 
   CircleMember copyWith({
     String? id,
@@ -43,6 +45,7 @@ class CircleMember {
     bool? isManual,
     DateTime? lastCheckInAt,
     DateTime? lastAlertAt,
+    bool? sharesActivity,
   }) {
     return CircleMember(
       id: id ?? this.id,
@@ -56,6 +59,7 @@ class CircleMember {
       isManual: isManual ?? this.isManual,
       lastCheckInAt: lastCheckInAt ?? this.lastCheckInAt,
       lastAlertAt: lastAlertAt ?? this.lastAlertAt,
+      sharesActivity: sharesActivity ?? this.sharesActivity,
     );
   }
 
@@ -63,12 +67,17 @@ class CircleMember {
     DocumentSnapshot<Map<String, dynamic>> doc,
   ) {
     final data = doc.data() ?? <String, dynamic>{};
+    final role = _roleFromString(data['role'] as String?);
+    final shareActivityRaw = data['shareActivity'];
+    final sharesActivity = shareActivityRaw is bool
+        ? shareActivityRaw
+        : _defaultShareActivity(role);
     return CircleMember(
       id: doc.id,
       displayName: (data['displayName'] as String?)?.trim().isNotEmpty == true
           ? (data['displayName'] as String).trim()
           : 'Member',
-      role: _roleFromString(data['role'] as String?),
+      role: role,
       status: _statusFromString(data['status'] as String?),
       relationship: (data['relationship'] as String?)?.trim(),
       phone: (data['phone'] as String?)?.trim(),
@@ -77,7 +86,24 @@ class CircleMember {
       isManual: data['isManual'] as bool? ?? false,
       lastCheckInAt: _parseDate(data['lastCheckInAt']),
       lastAlertAt: _parseDate(data['lastAlertAt']),
+      sharesActivity: sharesActivity,
     );
+  }
+
+  static bool _defaultShareActivity(CircleMemberRole role) {
+    return role == CircleMemberRole.survivor;
+  }
+
+  String get maskedDisplayName {
+    final trimmed = displayName.trim();
+    if (trimmed.isEmpty) return 'Member';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length == 1) {
+      return parts.first;
+    }
+    final firstName = parts.first;
+    final lastInitial = parts.last.isNotEmpty ? parts.last[0].toUpperCase() : '';
+    return lastInitial.isEmpty ? firstName : '$firstName $lastInitial.';
   }
 
   static CircleMemberRole _roleFromString(String? value) {

@@ -56,7 +56,9 @@ class CircleRepository {
       final members = membersSnapshot.docs
           .map((doc) => CircleMember.fromFirestore(doc))
           .toList();
-      CircleStats stats = CircleStats.fromMembers(members);
+      final visibleMembers =
+          members.where((member) => member.sharesActivity).toList();
+      CircleStats stats = CircleStats.fromMembers(visibleMembers);
       List<CircleAlertSummary> alerts = const [];
 
       try {
@@ -75,7 +77,7 @@ class CircleRepository {
       }
 
       yield CircleOverview(
-        members: members,
+        members: visibleMembers,
         stats: stats,
         alerts: alerts,
         isDemoData: false,
@@ -138,6 +140,7 @@ class CircleRepository {
       isManual: false,
       lastCheckInAt: contact.createdAt,
       lastAlertAt: null,
+      sharesActivity: true,
     );
   }
 

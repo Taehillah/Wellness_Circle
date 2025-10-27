@@ -6,6 +6,8 @@ import '../../../shared/router/app_router.dart';
 import '../../../shared/settings/settings_controller.dart';
 import '../../../shared/theme/theme_controller.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../circle/application/circle_overview_provider.dart';
+import '../../circle/data/circle_membership_repository.dart';
 import '../../contacts/application/contacts_controller.dart';
 
 class SettingsView extends ConsumerStatefulWidget {
@@ -30,6 +32,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
 
   @override
   Widget build(BuildContext context) {
+    final session = ref.watch(authSessionProvider);
     final themeMode = ref.watch(themeModeProvider);
     final locationEnabled = ref.watch(locationEnabledProvider);
     final timerHours = ref.watch(timerHoursProvider);
@@ -172,6 +175,80 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                         icon: const Icon(Icons.person_add_alt),
                         label: const Text('Add'),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: sectionSpacing),
+              _SettingsSection(
+                backgroundColor: _panelColor,
+                titleColor: sectionTitleColor,
+                iconColor: sectionIconColor,
+                iconBackgroundColor: sectionIconBackground,
+                icon: Icons.cleaning_services_outlined,
+                title: 'Care circle management',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Remove everyone you currently monitor. You can rejoin a member later by scanning their QR code again.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                      ),
+                      onPressed: session == null
+                          ? null
+                          : () async {
+                              final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Remove all members?'),
+                                      content: const Text(
+                                        'This will remove every member you are currently taking care of. You will stop receiving their alerts until you join their circle again.',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.of(context).pop(false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.of(context).pop(true),
+                                          child: const Text('Remove'),
+                                        ),
+                                      ],
+                                    ),
+                                  ) ??
+                                  false;
+                              if (!confirmed) {
+                                return;
+                              }
+                              try {
+                                final repository =
+                                    ref.read(circleMembershipRepositoryProvider);
+                                await repository.removeAllMembers(session: session);
+                                ref.invalidate(circleOverviewProvider);
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('All members removed.'),
+                                  ),
+                                );
+                              } catch (error) {
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Failed to remove members: $error',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                      icon: const Icon(Icons.delete_forever_outlined),
+                      label: const Text('Remove all members'),
                     ),
                   ],
                 ),
