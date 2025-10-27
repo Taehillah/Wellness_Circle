@@ -56,8 +56,6 @@ class AuthController extends Notifier<AuthState> {
   late final AuthRepository _repository;
   Completer<void>? _restoreCompleter;
   Timer? _debounce;
-  AuthSession? _pendingSession; // holds restored session until biometric unlock
-
   @override
   AuthState build() {
     _preferences = ref.read(preferencesServiceProvider);
@@ -81,19 +79,17 @@ class AuthController extends Notifier<AuthState> {
         completer.complete();
         return;
       }
-      // Defer restored session until user authenticates (e.g., biometrics).
       final session = AuthSession.fromJson(saved);
-      _pendingSession = session;
-      // Keep user at login until they unlock.
-      _setUnauthenticated();
+      _setSession(session);
+      await ref.read(messagingServiceProvider).configureForSession(session);
       completer.complete();
     } on HttpRequestException catch (error) {
       if (error.isConnectivity) {
-        // Defer restored session until unlock, even when offline.
         final saved = _preferences.getJson(_sessionStorageKey);
         if (saved != null) {
-          _pendingSession = AuthSession.fromJson(saved);
-          _setUnauthenticated();
+          final session = AuthSession.fromJson(saved);
+          _setSession(session);
+          await ref.read(messagingServiceProvider).configureForSession(session);
           completer.complete();
         } else {
           _setUnauthenticated();
@@ -121,26 +117,6 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
-  Future<bool> unlockWithBiometrics() async {
-    try {
-      // Prefer the pending session captured during restore; fall back to persisted.
-      var session = _pendingSession;
-      if (session == null) {
-        final saved = _preferences.getJson(_sessionStorageKey);
-        if (saved == null) {
-          return false;
-        }
-        session = AuthSession.fromJson(saved);
-      }
-      _pendingSession = null;
-      _setSession(session);
-      state = state.copyWith(status: AuthStatus.authenticated);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
   Future<void> login({required String email, required String password}) async {
     state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
     try {
@@ -155,7 +131,7 @@ class AuthController extends Notifier<AuthState> {
         id: session.user.id,
         name: session.user.name,
         email: session.user.email,
-        phone: null,
+        phone: session.user.phone,
         location: session.user.location,
         dateOfBirth: session.user.dateOfBirth,
         userType: session.user.userType,
@@ -165,6 +141,7 @@ class AuthController extends Notifier<AuthState> {
       );
       await _persistSession(session);
       _setSession(session);
+      await ref.read(messagingServiceProvider).configureForSession(session);
       state = state.copyWith(status: AuthStatus.authenticated);
     } on HttpRequestException catch (error) {
       state = state.copyWith(
@@ -183,6 +160,7 @@ class AuthController extends Notifier<AuthState> {
     String? location,
     DateTime? dateOfBirth,
     required String userType,
+    String? phone,
   }) async {
     state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
     try {
@@ -194,6 +172,7 @@ class AuthController extends Notifier<AuthState> {
         location: location,
         dateOfBirth: dateOfBirth,
         userType: userType,
+        phone: phone,
       );
       final session = AuthSession(token: response.token, user: response.user);
       // Persist to local database for control centre records.
@@ -202,7 +181,7 @@ class AuthController extends Notifier<AuthState> {
         id: session.user.id,
         name: session.user.name,
         email: session.user.email,
-        phone: null,
+        phone: session.user.phone,
         location: session.user.location,
         dateOfBirth: session.user.dateOfBirth,
         userType: session.user.userType,
@@ -212,6 +191,7 @@ class AuthController extends Notifier<AuthState> {
       );
       await _persistSession(session);
       _setSession(session);
+      await ref.read(messagingServiceProvider).configureForSession(session);
       state = state.copyWith(status: AuthStatus.authenticated);
     } on HttpRequestException catch (error) {
       state = state.copyWith(
@@ -231,6 +211,7 @@ class AuthController extends Notifier<AuthState> {
       final session = AuthSession(token: response.token, user: response.user);
       await _persistSession(session);
       _setSession(session);
+      await ref.read(messagingServiceProvider).configureForSession(session);
     } on HttpRequestException catch (error) {
       state = state.copyWith(errorMessage: error.message);
       rethrow;
@@ -268,6 +249,7 @@ class AuthController extends Notifier<AuthState> {
       state = state.copyWith(status: AuthStatus.loading);
       // Token cleared with persisted session removal.
       await _preferences.remove(_sessionStorageKey);
+      await ref.read(messagingServiceProvider).clearTokenForCurrentUser();
       if (remote) {
         await _repository.logout();
       }

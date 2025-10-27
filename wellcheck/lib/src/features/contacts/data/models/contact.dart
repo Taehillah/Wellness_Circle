@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Contact {
   const Contact({
     required this.id,
@@ -12,20 +14,32 @@ class Contact {
   final DateTime createdAt;
 
   factory Contact.fromJson(Map<String, dynamic> json) {
+    final id = json['id'] as String?;
+    final name = json['name'] as String?;
+    final phone = json['phone'] as String?;
+    final createdRaw = json['createdAt'];
+    DateTime createdAt;
+    if (createdRaw is Timestamp) {
+      createdAt = createdRaw.toDate();
+    } else if (createdRaw is String) {
+      createdAt = DateTime.tryParse(createdRaw) ?? DateTime.now();
+    } else {
+      createdAt = DateTime.now();
+    }
     return Contact(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      phone: json['phone'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      id: id ?? '',
+      name: name ?? 'Contact',
+      phone: phone ?? '',
+      createdAt: createdAt,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'phone': phone,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'id': id,
+    'name': name,
+    'phone': phone,
+    'createdAt': createdAt.toIso8601String(),
+  };
 
   Contact copyWith({
     String? id,

@@ -95,23 +95,35 @@ class HomeView extends ConsumerWidget {
             ),
             Consumer(
               builder: (context, ref, _) {
-                final contactsState = ref.watch(contactsControllerProvider);
-                final totalMembers = contactsState.contacts.length;
+                final overviewAsync = ref.watch(circleOverviewProvider);
+                final alertsCount = overviewAsync.when(
+                  data: (overview) => overview.alerts.length,
+                  loading: () => 0,
+                  error: (_, __) => 0,
+                );
                 return IconButton(
                   tooltip: 'Circle updates',
                   onPressed: () {
-                    final controller = DefaultTabController.of(context);
-                    controller.animateTo(1);
+                    if (alertsCount > 0) {
+                      final controller = DefaultTabController.of(context);
+                      controller.animateTo(1);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('No new messages right now.'),
+                        ),
+                      );
+                    }
                   },
                   icon: Stack(
                     clipBehavior: Clip.none,
                     children: [
                       const Icon(LucideIcons.mail),
-                      if (totalMembers > 0)
+                      if (alertsCount > 0)
                         Positioned(
                           right: -4,
                           top: -4,
-                          child: _CountBadge(count: totalMembers),
+                          child: _CountBadge(count: alertsCount),
                         ),
                     ],
                   ),
@@ -181,7 +193,7 @@ class _HomeModeTabBar extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
           tabs: const [
-            Tab(text: 'Self'),
+            Tab(text: 'Self Care'),
             Tab(text: 'Circle'),
           ],
         ),
@@ -1322,11 +1334,14 @@ class _ActionButtons extends StatelessWidget {
   final bool isLoading;
   final WidgetRef ref;
 
-  void _openNeedHelpSheet(BuildContext context) {
+  void _openNeedHelpSheet(
+    BuildContext context, {
+    required bool includeLocation,
+  }) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => const NeedHelpSheet(),
+      builder: (ctx) => NeedHelpSheet(includeLocation: includeLocation),
     );
   }
 
@@ -1393,7 +1408,8 @@ class _ActionButtons extends StatelessWidget {
             const SizedBox(width: 16),
             Expanded(
               child: InkWell(
-                onTap: () => _openNeedHelpSheet(context),
+                onTap: () =>
+                    _openNeedHelpSheet(context, includeLocation: false),
                 borderRadius: BorderRadius.circular(999),
                 child: Container(
                   height: 96,
@@ -1426,7 +1442,7 @@ class _ActionButtons extends StatelessWidget {
             backgroundColor: const Color(0xFFB91C1C),
             foregroundColor: Colors.white,
           ),
-          onPressed: () => _openNeedHelpSheet(context),
+          onPressed: () => _openNeedHelpSheet(context, includeLocation: true),
           icon: const Icon(LucideIcons.siren),
           label: const Text('Need help now'),
         ),

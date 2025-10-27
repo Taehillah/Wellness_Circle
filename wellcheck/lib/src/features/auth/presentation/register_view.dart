@@ -20,6 +20,7 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _locationController = TextEditingController();
@@ -43,6 +44,7 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _locationController.dispose();
@@ -83,6 +85,9 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
             : _locationController.text.trim(),
         dateOfBirth: _selectedDob,
         userType: _selectedUserType,
+        phone: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
       );
     } catch (_) {
       // Errors surface via state.
@@ -98,14 +103,19 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
     return Scaffold(
       backgroundColor: const Color(0xFF1D4ED8), // solid blue variant
       body: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                const ThreeCirclesLogo(size: 72, color: Colors.white, strokeWidth: 5, overlap: 16),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const ThreeCirclesLogo(
+                  size: 72,
+                  color: Colors.white,
+                  strokeWidth: 5,
+                  overlap: 16,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'Join Wellness Circle',
@@ -183,6 +193,24 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          decoration: const InputDecoration(
+                            labelText: 'Phone number',
+                            prefixIcon: Icon(Icons.phone_outlined),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Phone number helps your circle reach you quickly';
+                            }
+                            if (value.trim().length < 7) {
+                              return 'Enter a valid phone number';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
                           controller: _dobController,
                           readOnly: true,
                           decoration: const InputDecoration(
@@ -231,9 +259,11 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                             labelText: 'Password (min 8 characters)',
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
-                              icon: Icon(_obscurePassword
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined),
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
                               onPressed: () {
                                 setState(() {
                                   _obscurePassword = !_obscurePassword;
@@ -259,9 +289,11 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                             labelText: 'Confirm password',
                             prefixIcon: const Icon(Icons.lock_reset_outlined),
                             suffixIcon: IconButton(
-                              icon: Icon(_obscureConfirm
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined),
+                              icon: Icon(
+                                _obscureConfirm
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
                               onPressed: () {
                                 setState(() {
                                   _obscureConfirm = !_obscureConfirm;
@@ -273,7 +305,8 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
                             if (value == null || value.trim().isEmpty) {
                               return 'Please confirm your password';
                             }
-                            if (value.trim() != _passwordController.text.trim()) {
+                            if (value.trim() !=
+                                _passwordController.text.trim()) {
                               return 'Passwords must match';
                             }
                             return null;

@@ -9,7 +9,9 @@ import '../../../shared/services/geolocation_service.dart';
 import '../data/models/help_location.dart';
 
 class NeedHelpSheet extends ConsumerStatefulWidget {
-  const NeedHelpSheet({super.key});
+  const NeedHelpSheet({super.key, this.includeLocation = true});
+
+  final bool includeLocation;
 
   @override
   ConsumerState<NeedHelpSheet> createState() => _NeedHelpSheetState();
@@ -31,7 +33,12 @@ class _NeedHelpSheetState extends ConsumerState<NeedHelpSheet> {
     if (!_requestedLocation) {
       _requestedLocation = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(emergencyControllerProvider.notifier).refreshLocation();
+        final controller = ref.read(emergencyControllerProvider.notifier);
+        if (widget.includeLocation) {
+          controller.refreshLocation();
+        } else {
+          controller.clearLocation();
+        }
       });
     }
   }
@@ -48,7 +55,13 @@ class _NeedHelpSheetState extends ConsumerState<NeedHelpSheet> {
     if (mounted && state.errorMessage == null) {
       Navigator.of(context).pop();
       messenger.showSnackBar(
-        SnackBar(content: Text(state.statusMessage ?? 'Help request sent!')),
+        SnackBar(
+          content: Text(
+            widget.includeLocation
+                ? state.statusMessage ?? 'Help request sent!'
+                : 'Your circle has been notified.',
+          ),
+        ),
       );
       _messageController.clear();
       controller.clearStatus();
@@ -139,81 +152,106 @@ class _NeedHelpSheetState extends ConsumerState<NeedHelpSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withOpacity(
-                  Theme.of(context).brightness == Brightness.dark ? 0.12 : 1,
+            if (widget.includeLocation)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface.withOpacity(
+                    Theme.of(context).brightness == Brightness.dark ? 0.12 : 1,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.gps_fixed,
-                        size: 20,
-                        color: state.hasLocation
-                            ? AppColors.success
-                            : AppColors.textSecondary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        state.hasLocation
-                            ? 'Location attached'
-                            : 'Location unavailable',
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _locationSummary(state),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Divider(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.outlineVariant.withOpacity(0.3),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: state.isLocating
-                            ? null
-                            : () => ref
-                                  .read(emergencyControllerProvider.notifier)
-                                  .refreshLocation(),
-                        icon: state.isLocating
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.refresh),
-                        label: const Text('Refresh location'),
-                      ),
-                      if (state.location != null) ...[
-                        const SizedBox(width: 12),
-                        OutlinedButton.icon(
-                          onPressed: () => _openDirections(state.location!),
-                          icon: const Icon(Icons.directions_car_outlined),
-                          label: const Text('Drive'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.gps_fixed,
+                          size: 20,
+                          color: state.hasLocation
+                              ? AppColors.success
+                              : AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          state.hasLocation
+                              ? 'Location attached'
+                              : 'Location unavailable',
+                          style: Theme.of(context).textTheme.titleSmall,
                         ),
                       ],
-                    ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _locationSummary(state),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Divider(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outlineVariant.withOpacity(0.3),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: state.isLocating
+                              ? null
+                              : () => ref
+                                    .read(emergencyControllerProvider.notifier)
+                                    .refreshLocation(),
+                          icon: state.isLocating
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.refresh),
+                          label: const Text('Refresh location'),
+                        ),
+                        if (state.location != null) ...[
+                          const SizedBox(width: 12),
+                          OutlinedButton.icon(
+                            onPressed: () => _openDirections(state.location!),
+                            icon: const Icon(Icons.directions_car_outlined),
+                            label: const Text('Drive'),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              )
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface.withOpacity(
+                    Theme.of(context).brightness == Brightness.dark ? 0.12 : 1,
                   ),
-                ],
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'This update will notify your circle without sharing your location.',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
             if (state.errorMessage != null)
               Padding(
                 padding: const EdgeInsets.only(top: 12),

@@ -36,7 +36,11 @@ Future<void> bootstrap() async {
   final prefs = await SharedPreferences.getInstance();
   final notifications = NotificationsService();
   await notifications.init();
-  final messaging = MessagingService(notifications);
+  final messaging = MessagingService(
+    notifications,
+    FirebaseFirestore.instance,
+    FirebaseAuth.instance,
+  );
   await messaging.init();
   final database = AppDatabase();
   await database.init();

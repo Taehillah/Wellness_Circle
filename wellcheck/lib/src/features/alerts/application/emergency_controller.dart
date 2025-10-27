@@ -231,6 +231,15 @@ class EmergencyController extends Notifier<EmergencyState> {
     state = state.copyWith(statusMessage: null, errorMessage: null);
   }
 
+  void clearLocation() {
+    state = state.copyWith(
+      location: null,
+      isLocating: false,
+      statusMessage: null,
+      errorMessage: null,
+    );
+  }
+
   Future<void> _recordAlertInFirestore({
     required AuthSession session,
     required NeedHelpPayload payload,

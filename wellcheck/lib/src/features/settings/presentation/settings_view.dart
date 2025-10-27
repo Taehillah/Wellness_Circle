@@ -321,8 +321,8 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                     ),
-                    onPressed: () async {
-                      await ref.read(authControllerProvider.notifier).logout();
+                    onPressed: () {
+                      ref.read(authControllerProvider.notifier).logout();
                       if (!mounted) return;
                       context.go(AppRoute.login.path);
                     },

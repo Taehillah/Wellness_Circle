@@ -9,6 +9,7 @@ class AuthUser {
     required this.userType,
     required this.createdAt,
     required this.updatedAt,
+    this.phone,
     this.circleId,
   });
 
@@ -21,6 +22,7 @@ class AuthUser {
   final String userType;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? phone;
   final String? circleId;
 
   bool get isAdmin => role.toLowerCase() == 'admin';
@@ -43,6 +45,7 @@ class AuthUser {
           'Pensioner',
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
+      phone: (json['phone'] as String?)?.trim(),
       circleId:
           (json['circleId'] as String?) ??
           (json['circle_id'] as String?) ??
@@ -60,6 +63,7 @@ class AuthUser {
     'userType': userType,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
+    if (phone != null) 'phone': phone,
     if (circleId != null) 'circleId': circleId,
   };
 
@@ -73,6 +77,7 @@ class AuthUser {
     String? userType,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? phone,
     String? circleId,
   }) {
     return AuthUser(
@@ -85,6 +90,7 @@ class AuthUser {
       userType: userType ?? this.userType,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      phone: phone ?? this.phone,
       circleId: circleId ?? this.circleId,
     );
   }

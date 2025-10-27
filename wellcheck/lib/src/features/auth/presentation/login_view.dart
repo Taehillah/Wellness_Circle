@@ -7,7 +7,6 @@ import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/three_circles_logo.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../application/auth_controller.dart';
-import '../../../shared/providers/shared_providers.dart';
 
 class LoginView extends ConsumerStatefulWidget {
   const LoginView({super.key});
@@ -55,14 +54,19 @@ class _LoginViewState extends ConsumerState<LoginView> {
     return Scaffold(
       backgroundColor: const Color(0xFF2563EB), // solid modern blue
       body: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                const ThreeCirclesLogo(size: 72, color: Colors.white, strokeWidth: 5, overlap: 16),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const ThreeCirclesLogo(
+                  size: 72,
+                  color: Colors.white,
+                  strokeWidth: 5,
+                  overlap: 16,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'Wellness Circle',
@@ -96,7 +100,10 @@ class _LoginViewState extends ConsumerState<LoginView> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: Colors.white, width: 1.5),
+                        borderSide: const BorderSide(
+                          color: Colors.white,
+                          width: 1.5,
+                        ),
                       ),
                     ),
                     textTheme: theme.textTheme.apply(
@@ -170,7 +177,8 @@ class _LoginViewState extends ConsumerState<LoginView> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: () => context.go(AppRoute.forgotPassword.path),
+                            onPressed: () =>
+                                context.go(AppRoute.forgotPassword.path),
                             child: const Text(
                               'Forgot password?',
                               style: TextStyle(color: Colors.white70),
@@ -194,42 +202,9 @@ class _LoginViewState extends ConsumerState<LoginView> {
                           label: 'Log In',
                           isLoading: isLoading,
                           onPressed: isLoading ? null : _submit,
-                          backgroundColor: const Color(0xFF16A34A), // solid green
-                        ),
-                        const SizedBox(height: 10),
-                        FutureBuilder<bool>(
-                          future: ref.read(biometricServiceProvider).isAvailable(),
-                          builder: (context, snapshot) {
-                            final available = snapshot.data ?? false;
-                            if (!available) return const SizedBox.shrink();
-                            return OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: const BorderSide(color: Colors.white70),
-                              ),
-                              icon: const Icon(Icons.fingerprint),
-                              onPressed: isLoading
-                                  ? null
-                                  : () async {
-                                      final bio = ref.read(biometricServiceProvider);
-                                      final ok = await bio.authenticate(reason: 'Login with biometrics');
-                                      if (!ok) {
-                                        if (!mounted) return;
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Biometric authentication was canceled or unavailable.')),
-                                        );
-                                        return;
-                                      }
-                                      final unlocked = await ref.read(authControllerProvider.notifier).unlockWithBiometrics();
-                                      if (!unlocked && context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('No saved session found. Please log in once.')),
-                                        );
-                                      }
-                                    },
-                              label: const Text('Login with biometrics'),
-                            );
-                          },
+                          backgroundColor: const Color(
+                            0xFF16A34A,
+                          ), // solid green
                         ),
                       ],
                     ),

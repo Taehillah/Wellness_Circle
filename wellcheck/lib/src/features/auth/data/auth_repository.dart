@@ -60,7 +60,7 @@ class AuthRepository {
               firebaseUser.metadata.lastSignInTime ?? DateTime.now(),
             );
 
-      await _persistLocalProfile(user, firebaseUser.phoneNumber);
+      await _persistLocalProfile(user, user.phone ?? firebaseUser.phoneNumber);
 
       final token = await firebaseUser.getIdToken();
       if (token == null || token.isEmpty) {
@@ -80,6 +80,7 @@ class AuthRepository {
     String? location,
     DateTime? dateOfBirth,
     required String userType,
+    String? phone,
   }) async {
     if (password != confirmPassword) {
       throw const HttpRequestException('Passwords do not match');
@@ -107,6 +108,7 @@ class AuthRepository {
         userType: userType,
         location: location,
         dateOfBirth: dateOfBirth,
+        phone: phone,
       );
 
       final now = DateTime.now();
@@ -121,10 +123,11 @@ class AuthRepository {
         userType: userType,
         createdAt: now,
         updatedAt: now,
+        phone: phone?.trim(),
         circleId: 'circle-$legacyId',
       );
 
-      await _persistLocalProfile(user, firebaseUser.phoneNumber);
+      await _persistLocalProfile(user, user.phone ?? firebaseUser.phoneNumber);
 
       final token = await firebaseUser.getIdToken();
       if (token == null || token.isEmpty) {
@@ -181,7 +184,10 @@ class AuthRepository {
         : _userFromRecord(localRecord!);
 
     if (localRecord == null) {
-      await _persistLocalProfile(user, firebaseUser.phoneNumber);
+      await _persistLocalProfile(
+        user,
+        user.phone ?? firebaseUser.phoneNumber,
+      );
     }
 
     final token = await firebaseUser.getIdToken();
@@ -203,6 +209,7 @@ class AuthRepository {
         email: firebaseUser.email ?? fallbackEmail,
         displayName: firebaseUser.displayName,
         userType: 'Pensioner',
+        phone: firebaseUser.phoneNumber,
       );
     } else {
       final data = snapshot.data();
@@ -233,6 +240,7 @@ class AuthRepository {
     String? userType,
     String? location,
     DateTime? dateOfBirth,
+    String? phone,
   }) async {
     final now = DateTime.now();
     final legacyId = _stableIdFromEmail(email);
@@ -247,6 +255,7 @@ class AuthRepository {
       'userType': userType ?? 'Pensioner',
       'location': location?.trim(),
       'dateOfBirth': dateOfBirth?.toIso8601String(),
+      'phone': phone?.trim(),
       'createdAt': FieldValue.serverTimestamp(),
       'createdAtLocal': now.toIso8601String(),
       'lastSignInAt': FieldValue.serverTimestamp(),
@@ -286,6 +295,7 @@ class AuthRepository {
         data['lastSignInAtLocal'] as String? ??
         data['lastSignInAt']?.toString();
     final circleId = (data['circleId'] as String?) ?? 'circle-$legacyId';
+    final phone = (data['phone'] as String?)?.trim();
     return AuthUser(
       id: legacyId,
       name: name?.isNotEmpty == true
@@ -304,6 +314,7 @@ class AuthRepository {
       updatedAt: updatedAtRaw == null
           ? DateTime.now()
           : DateTime.tryParse(updatedAtRaw) ?? DateTime.now(),
+      phone: phone ?? firebaseUser.phoneNumber,
       circleId: circleId,
     );
   }
@@ -320,6 +331,7 @@ class AuthRepository {
         DateTime.tryParse(record['updated_at'] as String? ?? '') ??
         DateTime.now();
     final circleId = record['circle_id'] as String? ?? 'circle-${record['id']}';
+    final phone = (record['phone'] as String?)?.trim();
     return AuthUser(
       id: record['id'] as int,
       name: record['name'] as String,
@@ -332,6 +344,7 @@ class AuthRepository {
       userType: userType,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      phone: phone,
       circleId: circleId,
     );
   }
